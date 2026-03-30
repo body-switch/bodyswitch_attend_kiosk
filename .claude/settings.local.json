@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew assembleDebug)",
+      "WebFetch(domain:221.146.76.214)",
+      "Bash(./gradlew compileDebugKotlin)",
+      "Bash(ls:*)",
+      "mcp__plugin_figma_figma__get_design_context",
+      "mcp__plugin_figma_figma__get_screenshot",
+      "Bash(grep -r \"BackHandler\\\\|beforeRemove\\\\|popBackStack\\\\|navigate.*reset\\\\|BackButton\\\\|onBackPressed\" /mnt/c/Users/dnjs7/work/checkin-app/app/src --include=*.kt)",
+      "Bash(find . -name *.kt -newer app/src/main/java/com/bodyswitch/checkin/data/api/KioskApi.kt -o -name *.kt -newer app/src/main/java/com/bodyswitch/checkin/ui/checkin/CheckinScreen.kt)",
+      "Bash(./gradlew :app:compileDebugKotlin)",
+      "Bash(gradle :app:compileDebugKotlin)",
+      "Bash(xargs cat:*)",
+      "Bash(/mnt/c/Users/dnjs7/work/checkin-app/gradle/wrapper/../../../gradle/wrapper/../../gradlew)"
+    ]
+  }
+}
