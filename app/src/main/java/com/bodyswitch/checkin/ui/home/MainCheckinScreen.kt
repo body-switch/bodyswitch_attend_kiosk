@@ -157,21 +157,6 @@ fun MainCheckinScreen(
 
     val cameraPermission = rememberPermissionState(Manifest.permission.CAMERA)
 
-    // 실시간 시계
-    var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            currentTime = System.currentTimeMillis()
-            delay(1000L)
-        }
-    }
-
-    val now = Date(currentTime)
-    val calendar = Calendar.getInstance().apply { time = now }
-    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA)
-    val timeFormat = SimpleDateFormat("a hh:mm", Locale.KOREA)
-    val dayOfWeek = arrayOf("", "일", "월", "화", "수", "목", "금", "토")[calendar.get(Calendar.DAY_OF_WEEK)]
-
     // 카메라 권한 자동 요청
     LaunchedEffect(Unit) {
         if (qrEnabled && !cameraPermission.status.isGranted) {
@@ -310,9 +295,6 @@ fun MainCheckinScreen(
                     .background(Color.White.copy(alpha = 0.08f))
             ) {
                 TopBar(
-                    dateText = dateFormat.format(now),
-                    dayOfWeek = dayOfWeek,
-                    timeText = timeFormat.format(now),
                     centerName = sessionManager.businessName ?: sessionManager.branchName ?: "",
                     onStaffCall = { showStaffCallDialog = true },
                     onDateClick = { scope.launch { drawerState.open() } },
@@ -514,7 +496,7 @@ private fun AdColumn(modifier: Modifier = Modifier) {
                 )
                 Text(
                     text = "회원관리\n이제 더 간편하게!",
-                    fontSize = 44.sp,
+                    fontSize = 40.sp,
                     fontWeight = FontWeight.Black,
                     color = Color(0xFFFEEB1C),
                     lineHeight = 50.sp,
@@ -562,13 +544,13 @@ fun ItemCard(text: String, modifier: Modifier = Modifier) {
         }
 
         // 3. 아이콘과 텍스트 사이 간격 고정
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(5.dp))
 
         // 4. 텍스트
         Text(
             text = text,
             style = TextStyle(
-                fontSize = 32.sp, // 글자가 길면 조금 줄이는 것도 방법입니다.
+                fontSize = 26.sp, // 글자가 길면 조금 줄이는 것도 방법입니다.
                 fontWeight = FontWeight.Black,
                 color = Color.White,
                 lineHeight = 40.sp
@@ -776,8 +758,9 @@ private fun PhoneKeypadContent(
         }
         Spacer(modifier = Modifier.padding(10.dp))
         // 키패드
+        val keypadRows = remember { listOf(listOf("1","2","3"), listOf("4","5","6"), listOf("7","8","9")) }
         Column(verticalArrangement = Arrangement.spacedBy(keySpacing)) {
-            listOf(listOf("1","2","3"), listOf("4","5","6"), listOf("7","8","9")).forEach { row ->
+            keypadRows.forEach { row ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(keySpacing),
@@ -894,15 +877,26 @@ private fun CameraPermissionPlaceholder(onRequest: () -> Unit) {
 // ─── 상단 바 ───
 @Composable
 private fun TopBar(
-    dateText: String,
-    dayOfWeek: String,
-    timeText: String,
     centerName: String,
     onStaffCall: () -> Unit,
     onDateClick: () -> Unit = {},
     switchText: String = "",
     onSwitch: () -> Unit = {},
 ) {
+    // 시계 상태를 TopBar 안에서만 관리 → MainCheckinScreen 리컴포지션 방지
+    var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTime = System.currentTimeMillis()
+            delay(1000L)
+        }
+    }
+    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.KOREA) }
+    val timeFormat = remember { SimpleDateFormat("a hh:mm", Locale.KOREA) }
+    val now = Date(currentTime)
+    val calendar = Calendar.getInstance().apply { time = now }
+    val dayOfWeek = arrayOf("", "일", "월", "화", "수", "목", "금", "토")[calendar.get(Calendar.DAY_OF_WEEK)]
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -917,11 +911,11 @@ private fun TopBar(
             ) { onDateClick() },
         ) {
             Row(verticalAlignment = Alignment.Top) {
-                Text(dateText, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Color.White, letterSpacing = (-0.2).sp)
+                Text(dateFormat.format(now), fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Color.White, letterSpacing = (-0.2).sp)
                 Spacer(modifier = Modifier.width(6.dp))
                 Text("($dayOfWeek)", modifier = Modifier.offset(y = (-5).dp), fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
             }
-            Text(timeText, fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = Color.White, letterSpacing = (-0.3).sp)
+            Text(timeFormat.format(now), fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = Color.White, letterSpacing = (-0.3).sp)
         }
         Text(centerName, fontSize = 28.sp, fontWeight = FontWeight.Medium, color = Color.White)
         Row(
