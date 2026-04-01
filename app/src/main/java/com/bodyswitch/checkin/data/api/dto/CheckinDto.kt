@@ -96,3 +96,24 @@ data class AttendResponse(
     val usageCount: Int?,
     val reservationInfo: AttendReservationInfo?,
 )
+
+// 직원 체크인
+@JsonClass(generateAdapter = true)
+data class EmployeeCheckinRequest(
+    val branchId: Long,
+    val checkInMethod: String = "QR",
+    val attendType: String = "ENTRY",
+    val memo: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class EmployeeCheckinResponse(
+    val employeeId: Long,
+    val employeeName: String,
+    val branchId: Long,
+    val attendType: String = "ENTRY",
+    val entryCount: Int = 0,
+    val exitCount: Int = 0,
+    val checkinTime: String = "",
+    val message: String = "",
+)

@@ -111,6 +111,7 @@ fun MainCheckinScreen(
     checkinSettingsManager: CheckinSettingsManager,
     onQrScanned: (String) -> Unit,
     onPhoneLogin: (String) -> Unit,
+    onEmployeeAttendType: () -> Unit = {},
     onHistoryClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onLogout: () -> Unit,
@@ -181,6 +182,12 @@ fun MainCheckinScreen(
         phoneUiState.token?.let {
             onPhoneLogin(it)
             phoneViewModel.clearToken()
+        }
+    }
+    LaunchedEffect(phoneUiState.isEmployee) {
+        if (phoneUiState.isEmployee) {
+            onEmployeeAttendType()
+            phoneViewModel.clearEmployee()
         }
     }
 

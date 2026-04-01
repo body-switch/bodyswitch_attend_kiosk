@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bodyswitch.checkin.data.api.KioskApi
 import com.bodyswitch.checkin.data.api.dto.PhoneLoginRequest
+import com.bodyswitch.checkin.data.session.EmployeeLoginHolder
 import com.bodyswitch.checkin.data.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +20,8 @@ data class PhoneLoginUiState(
     val token: String? = null,
     val error: String? = null,
     val loginDispatched: Boolean = false, // 자동 로그인 중복 실행 방지
+    // 직원 → 선택 화면으로 이동
+    val isEmployee: Boolean = false,
 )
 
 @HiltViewModel
@@ -48,7 +51,22 @@ class PhoneLoginViewModel @Inject constructor(
                     adminToken = sessionManager.token,
                     request = PhoneLoginRequest(phoneNumber = formatted),
                 )
-                Log.d("CHECKIN", "로그인 성공: ${response.name}")
+                Log.d("CHECKIN", "로그인 성공: ${response.name}, role=${response.role}")
+
+                if (response.role == "EMPLOYEE") {
+                    EmployeeLoginHolder.set(
+                        token = response.token,
+                        branchId = response.branchId ?: sessionManager.branchId ?: return@launch,
+                        employeeName = response.name,
+                        checkInMethod = "PHONE",
+                    )
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isEmployee = true,
+                    )
+                    return@launch
+                }
+
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     token = response.token,
@@ -78,5 +96,12 @@ class PhoneLoginViewModel @Inject constructor(
 
     fun clearToken() {
         _uiState.value = _uiState.value.copy(token = null, phoneNumber = "")
+    }
+
+    fun clearEmployee() {
+        _uiState.value = _uiState.value.copy(
+            isEmployee = false,
+            phoneNumber = "",
+        )
     }
 }

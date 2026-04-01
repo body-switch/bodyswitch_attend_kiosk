@@ -12,7 +12,12 @@
       "Bash(./gradlew :app:compileDebugKotlin)",
       "Bash(gradle :app:compileDebugKotlin)",
       "Bash(xargs cat:*)",
-      "Bash(/mnt/c/Users/dnjs7/work/checkin-app/gradle/wrapper/../../../gradle/wrapper/../../gradlew)"
+      "Bash(/mnt/c/Users/dnjs7/work/checkin-app/gradle/wrapper/../../../gradle/wrapper/../../gradlew)",
+      "Bash(wc -l /mnt/c/Users/dnjs7/work/body_switch_backend/common/src/main/java/kr/co/bodyswitch/entity/*/*.java)",
+      "Bash(find /mnt/c/Users/dnjs7/work/body_switch_backend/mobile -name *Member*.java -type f)",
+      "Bash(find /mnt/c/Users/dnjs7/work/checkin-app -type f \\\\\\(-name Employee.java -o -name Employee.kt -o -name *DTO.java -o -name *DTO.kt -o -name *Dto.kt -o -name *Service.java -o -name *Service.kt -o -name *Controller.java -o -name *Repository.java -o -name *AttendHistory* -o -name *CheckInLogHistory* \\\\\\))",
+      "Bash(/tmp/project_structure.txt:*)",
+      "Read(//tmp/**)"
     ]
   }
 }

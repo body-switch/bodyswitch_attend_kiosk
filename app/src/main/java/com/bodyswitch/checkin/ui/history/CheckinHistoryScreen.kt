@@ -178,7 +178,7 @@ fun CheckinHistoryScreen(
                     .height(56.dp)
                     .border(2.dp, Color.White, RoundedCornerShape(8.dp)),
                 placeholder = {
-                    Text("회원명 또는 전화번호 검색", color = GrayText, fontSize = 14.sp)
+                    Text("이름 또는 전화번호 검색", color = GrayText, fontSize = 14.sp)
                 },
                 trailingIcon = {
                     Image(
@@ -286,6 +286,8 @@ fun CheckinHistoryScreen(
     }
 }
 
+private val EmployeeBadgeBg = Color(0xFF2A5C60)
+
 @Composable
 private fun AttendanceRow(record: AttendanceRecord) {
     val phoneLast4 = record.phoneNumber?.takeLast(4) ?: ""
@@ -295,9 +297,13 @@ private fun AttendanceRow(record: AttendanceRecord) {
         record.memberName
     }
 
-    val statusColor = if (record.status == "이용중") GreenActive else GrayText
+    val statusColor = when (record.status) {
+        "이용중", "출근" -> GreenActive
+        "퇴근" -> Color(0xFFEF4444)
+        else -> GrayText
+    }
     val isPass = record.ticketName?.contains("이용권") == true || record.usageCount == null
-    val usageText = if (!isPass && record.usageCount != null && record.remainCount != null) {
+    val usageText = if (!record.isEmployee && !isPass && record.usageCount != null && record.remainCount != null) {
         "${record.remainCount} / ${record.usageCount} (${record.remainCount}회 남음)"
     } else {
         ""
@@ -309,34 +315,52 @@ private fun AttendanceRow(record: AttendanceRecord) {
             .padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 왼쪽: 회원 정보
+        // 왼쪽: 정보
         Column(modifier = Modifier.weight(1f)) {
-            // 이름 (전번뒤4)
-            Text(
-                text = nameDisplay,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-            )
+            // 이름 + 직원 뱃지
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = nameDisplay,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                )
+                if (record.isEmployee) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .background(EmployeeBadgeBg, RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    ) {
+                        Text(
+                            text = "직원",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TealPrimary,
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(4.dp))
 
             // 지점명
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Image(
-                    painter = painterResource(R.drawable.ic_door),
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = record.branchName,
-                    fontSize = 13.sp,
-                    color = GrayText,
-                )
+            if (record.branchName.isNotEmpty()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Image(
+                        painter = painterResource(R.drawable.ic_door),
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = record.branchName,
+                        fontSize = 13.sp,
+                        color = GrayText,
+                    )
+                }
+                Spacer(modifier = Modifier.height(2.dp))
             }
-
-            Spacer(modifier = Modifier.height(2.dp))
 
             // 시간
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -346,39 +370,51 @@ private fun AttendanceRow(record: AttendanceRecord) {
                     modifier = Modifier.size(14.dp),
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "${record.date} ${record.startTime}",
-                    fontSize = 13.sp,
-                    color = GrayText,
-                )
+                if (record.isEmployee) {
+                    val timeParts = mutableListOf<String>()
+                    if (record.startTime.isNotEmpty()) timeParts.add("출근 ${record.startTime}")
+                    if (record.endTime != null) timeParts.add("퇴근 ${record.endTime}")
+                    Text(
+                        text = timeParts.joinToString(" ~ "),
+                        fontSize = 13.sp,
+                        color = GrayText,
+                    )
+                } else {
+                    Text(
+                        text = "${record.date} ${record.startTime}",
+                        fontSize = 13.sp,
+                        color = GrayText,
+                    )
+                }
             }
         }
 
-        // 오른쪽: 상태 + 회차 + 이용권
+        // 오른쪽: 상태 + 회차/출근횟수
         Column(
             horizontalAlignment = Alignment.End,
         ) {
-            // 이용중 / 퇴실
             Text(
                 text = record.status,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = statusColor,
             )
-            // N회차
-            Text(
-                text = "${record.attendCount}회차",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = TealPrimary,
-            )
-            // 이용권 잔여
-            if (usageText.isNotEmpty()) {
+            if (record.isEmployee) {
+                // 출근/퇴근 텍스트만 표시
+            } else {
                 Text(
-                    text = usageText,
-                    fontSize = 12.sp,
-                    color = GrayText,
+                    text = "${record.attendCount}회차",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TealPrimary,
                 )
+                if (usageText.isNotEmpty()) {
+                    Text(
+                        text = usageText,
+                        fontSize = 12.sp,
+                        color = GrayText,
+                    )
+                }
             }
         }
     }

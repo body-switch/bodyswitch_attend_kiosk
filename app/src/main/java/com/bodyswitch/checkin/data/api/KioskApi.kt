@@ -11,6 +11,9 @@ import com.bodyswitch.checkin.data.api.dto.AttendRequest
 import com.bodyswitch.checkin.data.api.dto.AttendResponse
 import com.bodyswitch.checkin.data.api.dto.CheckinRequest
 import com.bodyswitch.checkin.data.api.dto.CheckinResponse
+import com.bodyswitch.checkin.data.api.dto.EmployeeAttendHistoryResponse
+import com.bodyswitch.checkin.data.api.dto.EmployeeCheckinRequest
+import com.bodyswitch.checkin.data.api.dto.EmployeeCheckinResponse
 import com.bodyswitch.checkin.data.api.dto.StaffCallRequest
 import com.bodyswitch.checkin.data.api.dto.StaffCallResponse
 import com.bodyswitch.checkin.data.api.dto.PhoneLoginRequest
@@ -123,7 +126,27 @@ interface KioskApi {
         @Body request: CancelCheckinRequest,
     ): CancelCheckinResponse
 
+    // 직원 체크인 (출퇴근 기록)
+    @POST("kiosk/api/v1/checkin/employee")
+    suspend fun employeeCheckin(
+        @Header("Authorization") authorization: String,
+        @Body request: EmployeeCheckinRequest,
+    ): EmployeeCheckinResponse
+
+    // 직원 출입 기록 조회
+    @GET("kiosk/api/v1/checkin/employee/attend-histories")
+    suspend fun getEmployeeAttendHistories(
+        @Header("Authorization") authorization: String,
+        @Query("branchId") branchId: Long,
+        @Query("startDate") startDate: String? = null,
+        @Query("endDate") endDate: String? = null,
+        @Query("searchInput") searchInput: String? = null,
+        @Query("page") page: Int? = null,
+        @Query("limit") limit: Int? = null,
+    ): EmployeeAttendHistoryResponse
+
     // 직원 호출 알림톡 발송
+
     @POST("kiosk/api/v1/branches/manager/call")
     suspend fun staffCall(
         @Header("Authorization") authorization: String,

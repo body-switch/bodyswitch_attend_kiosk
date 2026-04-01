@@ -98,6 +98,7 @@ private val Green = Color(0xFF4CAF50)
 fun CheckinScreen(
     onBack: () -> Unit,
     onCheckinComplete: () -> Unit,
+    onEmployeeAttendType: () -> Unit = {},
     centerName: String = "",
     viewModel: CheckinViewModel = hiltViewModel(),
 ) {
@@ -143,6 +144,11 @@ fun CheckinScreen(
     }
     LaunchedEffect(uiState.checkinDone) {
         if (uiState.checkinDone) onCheckinComplete()
+    }
+    LaunchedEffect(uiState.isEmployee) {
+        if (uiState.isEmployee) {
+            onEmployeeAttendType()
+        }
     }
     LaunchedEffect(uiState.autoCheckinDone) {
         if (uiState.autoCheckinDone && !isNavigatingBack) {
@@ -237,7 +243,7 @@ fun CheckinScreen(
 
             // ── 로딩 / 회원 없음 / 메인 콘텐츠 분기 ──
             when {
-                uiState.isLoading -> {
+                uiState.isLoading || uiState.isEmployee -> {
                     Box(
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                         contentAlignment = Alignment.Center,

@@ -21,8 +21,11 @@ data class UidLoginRequest(
 data class QrLoginResponse(
     val token: String,
     val pushYn: String?,
-    val memberId: String,
+    val memberId: String?,
     val userId: Long,
     val name: String,
     val expiresAt: String?,
+    val role: String? = null,
+    val employeeId: Long? = null,
+    val branchId: Long? = null,
 )

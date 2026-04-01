@@ -30,6 +30,10 @@ data class AttendanceRecord(
     val usageCount: Int? = null,
     val remainCount: Int? = null,
     val status: String = "이용중",
+    // 직원 여부
+    val isEmployee: Boolean = false,
+    val entryCount: Int? = null,
+    val exitCount: Int? = null,
 )
 
 data class HistoryUiState(
@@ -128,9 +132,50 @@ class CheckinHistoryViewModel @Inject constructor(
                     )
                 }
 
+                // 직원 출입 기록 (1페이지만, 실패해도 회원 기록은 정상 표시)
+                val employeeRecords = if (page == 1 && sessionManager.branchId != null) {
+                    try {
+                        val empResponse = api.getEmployeeAttendHistories(
+                            authorization = "Bearer $token",
+                            branchId = sessionManager.branchId!!,
+                            startDate = date,
+                            endDate = date,
+                            searchInput = searchInput,
+                            page = 1,
+                            limit = 50,
+                        )
+                        empResponse.content.map { item ->
+                            val empStatus = if (item.exitCount > 0) "퇴근" else "출근"
+                            AttendanceRecord(
+                                id = -item.id,
+                                memberId = "",
+                                memberName = item.employeeName,
+                                phoneNumber = item.phoneNumber,
+                                branchName = sessionManager.branchName ?: "",
+                                attendType = "EMPLOYEE",
+                                attendCount = item.entryCount,
+                                startTime = item.startTime ?: item.endTime ?: "",
+                                endTime = item.endTime,
+                                date = item.writeDate,
+                                status = empStatus,
+                                isEmployee = true,
+                                entryCount = item.entryCount,
+                                exitCount = item.exitCount,
+                            )
+                        }
+                    } catch (e: Exception) {
+                        Log.e("HISTORY", "직원 출입 기록 조회 실패", e)
+                        emptyList()
+                    }
+                } else {
+                    emptyList()
+                }
+
+                val allRecords = (records + employeeRecords).sortedByDescending { it.startTime }
+
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    records = if (page == 1) records else _uiState.value.records + records,
+                    records = if (page == 1) allRecords else _uiState.value.records + records,
                     totalCount = response.totalElements,
                     page = page,
                 )

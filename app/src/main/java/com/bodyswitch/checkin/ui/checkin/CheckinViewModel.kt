@@ -8,6 +8,7 @@ import com.bodyswitch.checkin.data.api.KioskApi
 import com.bodyswitch.checkin.data.api.dto.AttendRequest
 import com.bodyswitch.checkin.data.api.dto.CheckinRequest
 import com.bodyswitch.checkin.data.api.dto.ErrorResponse
+import com.bodyswitch.checkin.data.session.EmployeeLoginHolder
 import com.bodyswitch.checkin.data.api.dto.QrLoginRequest
 import com.bodyswitch.checkin.data.model.CoursePass
 import com.bodyswitch.checkin.data.model.Member
@@ -40,6 +41,8 @@ data class CheckinUiState(
     val reservationsLoaded: Boolean = false,
     val noReservations: Boolean = false,
     val selectedReservationId: Long? = null,
+    // 직원 → 선택 화면으로 이동
+    val isEmployee: Boolean = false,
 )
 
 @HiltViewModel
@@ -82,7 +85,21 @@ class CheckinViewModel @Inject constructor(
                     request = QrLoginRequest(qrPayload = qrData ?: ""),
                 )
                 token = loginResponse.token
-                Log.d("CHECKIN", "로그인 성공: ${loginResponse.name}")
+                Log.d("CHECKIN", "로그인 성공: ${loginResponse.name}, role=${loginResponse.role}")
+
+                if (loginResponse.role == "EMPLOYEE") {
+                    EmployeeLoginHolder.set(
+                        token = token ?: return@launch,
+                        branchId = loginResponse.branchId ?: sessionManager.branchId ?: return@launch,
+                        employeeName = loginResponse.name,
+                        checkInMethod = checkInMethod,
+                    )
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isEmployee = true,
+                    )
+                    return@launch
+                }
 
                 loadTickets()
             } catch (e: retrofit2.HttpException) {
@@ -154,7 +171,7 @@ class CheckinViewModel @Inject constructor(
             } ?: emptyList()
 
             val member = Member(
-                id = response.memberId,
+                id = response.memberId ?: "",
                 name = response.memberName,
                 tickets = tickets,
                 passes = passes,
