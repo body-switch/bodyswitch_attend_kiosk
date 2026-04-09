@@ -33,6 +33,8 @@ class LoginViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
+    private var autoLoginAttempted = false
+
     init {
         // 저장된 자동로그인 정보 복원
         if (autoLoginManager.isEnabled) {
@@ -43,8 +45,9 @@ class LoginViewModel @Inject constructor(
                 password = savedPassword,
                 autoLogin = true,
             )
-            // 자동 로그인 시도
-            if (savedUsername.isNotBlank() && savedPassword.isNotBlank()) {
+            // 자동 로그인 시도 (1회만)
+            if (!autoLoginAttempted && savedUsername.isNotBlank() && savedPassword.isNotBlank()) {
+                autoLoginAttempted = true
                 performLogin(savedUsername, savedPassword)
             }
         }

@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bodyswitch.checkin.R
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -82,7 +83,7 @@ fun EmployeeCheckinCompleteScreen(
     var currentTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
         visible = true
-        while (true) {
+        while (isActive) {
             currentTime = System.currentTimeMillis()
             delay(1000L)
         }
@@ -90,11 +91,11 @@ fun EmployeeCheckinCompleteScreen(
 
     // 카운트다운 후 자동 이동
     LaunchedEffect(Unit) {
-        while (countdown > 0) {
+        while (countdown > 0 && isActive) {
             delay(1000L)
             countdown--
         }
-        onScanAgain()
+        if (isActive) onScanAgain()
     }
 
     val now = Date(currentTime)

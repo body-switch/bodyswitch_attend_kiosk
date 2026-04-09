@@ -54,6 +54,7 @@ import com.bodyswitch.checkin.data.session.AutoLoginManager
 import com.bodyswitch.checkin.data.session.CheckinSettingsManager
 import com.bodyswitch.checkin.data.session.SessionManager
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -92,7 +93,7 @@ fun HomeScreen(
     // 실시간 시계
     var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
-        while (true) {
+        while (isActive) {
             currentTime = System.currentTimeMillis()
             delay(1000L)
         }
@@ -100,8 +101,8 @@ fun HomeScreen(
 
     val now = Date(currentTime)
     val calendar = Calendar.getInstance().apply { time = now }
-    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA)
-    val timeFormat = SimpleDateFormat("a hh:mm", Locale.KOREA)
+    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.KOREA) }
+    val timeFormat = remember { SimpleDateFormat("a hh:mm", Locale.KOREA) }
     val dayOfWeek = arrayOf("", "일", "월", "화", "수", "목", "금", "토")[calendar.get(Calendar.DAY_OF_WEEK)]
 
     val roleDisplay = when (sessionManager.userRole) {

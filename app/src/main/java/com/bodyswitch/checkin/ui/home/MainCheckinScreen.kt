@@ -80,6 +80,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -893,7 +894,7 @@ private fun TopBar(
     // 시계 상태를 TopBar 안에서만 관리 → MainCheckinScreen 리컴포지션 방지
     var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
-        while (true) {
+        while (isActive) {
             currentTime = System.currentTimeMillis()
             delay(1000L)
         }

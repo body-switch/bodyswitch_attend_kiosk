@@ -66,6 +66,7 @@ import com.bodyswitch.checkin.data.session.EmployeeLoginHolder
 import com.squareup.moshi.Moshi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -188,12 +189,13 @@ fun EmployeeAttendTypeScreen(
         showInactivityWarning = false
         inactivityCountdown = 5
         delay(10_000L)
+        if (!isActive) return@LaunchedEffect
         showInactivityWarning = true
-        while (inactivityCountdown > 0) {
+        while (inactivityCountdown > 0 && isActive) {
             delay(1_000L)
             inactivityCountdown--
         }
-        if (!isNavigatingBack) {
+        if (isActive && !isNavigatingBack) {
             isNavigatingBack = true
             EmployeeLoginHolder.clear()
             onBack()
@@ -203,7 +205,7 @@ fun EmployeeAttendTypeScreen(
     // 실시간 시계
     var currentTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
-        while (true) {
+        while (isActive) {
             currentTime = System.currentTimeMillis()
             delay(1000L)
         }

@@ -62,6 +62,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 private val DarkBg = Color(0xFF000000)
 private val TealPrimary = Color(0xFF4AB3BC)
@@ -84,7 +85,7 @@ fun ScannerScreen(
     // 실시간 시계
     var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
-        while (true) {
+        while (isActive) {
             currentTime = System.currentTimeMillis()
             delay(1000L)
         }
@@ -92,8 +93,8 @@ fun ScannerScreen(
 
     val now = Date(currentTime)
     val calendar = Calendar.getInstance().apply { time = now }
-    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA)
-    val timeFormat = SimpleDateFormat("a hh:mm", Locale.KOREA)
+    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.KOREA) }
+    val timeFormat = remember { SimpleDateFormat("a hh:mm", Locale.KOREA) }
     val dayOfWeek = arrayOf("", "일", "월", "화", "수", "목", "금", "토")[calendar.get(Calendar.DAY_OF_WEEK)]
 
     LaunchedEffect(uiState.errorMessage) {

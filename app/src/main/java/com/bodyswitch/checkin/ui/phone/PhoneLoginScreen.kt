@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -77,7 +78,7 @@ fun PhoneLoginScreen(
     // 실시간 시계
     var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
-        while (true) {
+        while (isActive) {
             currentTime = System.currentTimeMillis()
             delay(1000L)
         }
@@ -85,8 +86,8 @@ fun PhoneLoginScreen(
 
     val now = Date(currentTime)
     val calendar = Calendar.getInstance().apply { time = now }
-    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA)
-    val timeFormat = SimpleDateFormat("a hh:mm", Locale.KOREA)
+    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.KOREA) }
+    val timeFormat = remember { SimpleDateFormat("a hh:mm", Locale.KOREA) }
     val dayOfWeek = arrayOf("", "일", "월", "화", "수", "목", "금", "토")[calendar.get(Calendar.DAY_OF_WEEK)]
 
     LaunchedEffect(uiState.error) {

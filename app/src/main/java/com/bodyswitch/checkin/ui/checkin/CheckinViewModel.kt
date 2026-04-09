@@ -71,6 +71,11 @@ class CheckinViewModel @Inject constructor(
             viewModelScope.launch { loadTickets() }
         } else if (qrData != null) {
             authenticate()
+        } else {
+            _uiState.value = CheckinUiState(
+                isLoading = false,
+                error = "인증 정보가 없습니다",
+            )
         }
     }
 
@@ -313,7 +318,7 @@ class CheckinViewModel @Inject constructor(
                 ),
             )
             Log.d("CHECKIN", "출석 처리 성공: ${response.message}")
-            _uiState.value = state.copy(
+            _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 checkinDone = true,
                 checkinMessage = response.message,
@@ -327,10 +332,10 @@ class CheckinViewModel @Inject constructor(
                 null
             } ?: "출석 처리에 실패했습니다 (${e.code()})"
             Log.e("CHECKIN", "출석 처리 실패: $errorMsg")
-            _uiState.value = state.copy(isLoading = false, error = errorMsg)
+            _uiState.value = _uiState.value.copy(isLoading = false, error = errorMsg)
         } catch (e: Exception) {
             Log.e("CHECKIN", "출석 네트워크 오류", e)
-            _uiState.value = state.copy(
+            _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 error = "서버에 연결할 수 없습니다",
             )
@@ -360,10 +365,10 @@ class CheckinViewModel @Inject constructor(
             if (response.isSuccessful) {
                 val body = response.body()
                 Log.d("CHECKIN", "체크인 성공: ${body?.message}")
-                _uiState.value = state.copy(
+                _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    checkinDone = true,
-                    autoCheckinDone = false,
+                    checkinDone = !isAuto,
+                    autoCheckinDone = isAuto,
                     checkinMessage = body?.message,
                 )
             } else {
@@ -376,11 +381,11 @@ class CheckinViewModel @Inject constructor(
                 } ?: "체크인에 실패했습니다 (${response.code()})"
 
                 Log.e("CHECKIN", "체크인 실패: $errorMsg")
-                _uiState.value = state.copy(isLoading = false, error = errorMsg)
+                _uiState.value = _uiState.value.copy(isLoading = false, error = errorMsg)
             }
         } catch (e: Exception) {
             Log.e("CHECKIN", "체크인 네트워크 오류", e)
-            _uiState.value = state.copy(
+            _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 error = "서버에 연결할 수 없습니다",
             )

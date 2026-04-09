@@ -73,6 +73,7 @@ import com.bodyswitch.checkin.data.model.Reservation
 import com.bodyswitch.checkin.data.model.Ticket
 import com.bodyswitch.checkin.data.model.TicketType
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.LocalDate
@@ -116,12 +117,13 @@ fun CheckinScreen(
         showInactivityWarning = false
         inactivityCountdown = 5
         delay(5_000L)
+        if (!isActive) return@LaunchedEffect
         showInactivityWarning = true
-        while (inactivityCountdown > 0) {
+        while (inactivityCountdown > 0 && isActive) {
             delay(1_000L)
             inactivityCountdown--
         }
-        if (!isNavigatingBack) {
+        if (isActive && !isNavigatingBack) {
             isNavigatingBack = true
             onBack()
         }
@@ -130,7 +132,7 @@ fun CheckinScreen(
     // 실시간 시계
     var currentTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
-        while (true) {
+        while (isActive) {
             currentTime = System.currentTimeMillis()
             delay(1000L)
         }
