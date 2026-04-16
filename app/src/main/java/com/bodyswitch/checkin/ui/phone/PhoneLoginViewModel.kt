@@ -4,9 +4,12 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bodyswitch.checkin.data.api.KioskApi
+import com.bodyswitch.checkin.data.api.dto.ErrorResponse
 import com.bodyswitch.checkin.data.api.dto.PhoneLoginRequest
+import com.bodyswitch.checkin.data.network.NetworkMonitor
 import com.bodyswitch.checkin.data.session.EmployeeLoginHolder
 import com.bodyswitch.checkin.data.session.SessionManager
+import com.squareup.moshi.Moshi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +31,8 @@ data class PhoneLoginUiState(
 class PhoneLoginViewModel @Inject constructor(
     private val api: KioskApi,
     private val sessionManager: SessionManager,
+    private val moshi: Moshi,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PhoneLoginUiState())
@@ -72,11 +77,18 @@ class PhoneLoginViewModel @Inject constructor(
                     token = response.token,
                 )
             } catch (e: retrofit2.HttpException) {
+                val errorBody = e.response()?.errorBody()?.string()
+                val serverMessage = try {
+                    moshi.adapter(ErrorResponse::class.java)
+                        .fromJson(errorBody ?: "")?.message
+                } catch (_: Exception) {
+                    null
+                }
                 val errorMsg = when (e.code()) {
                     404 -> "회원을 찾을 수 없습니다"
                     401 -> "인증에 실패했습니다"
                     406 -> "해당 지점의 회원이 아닙니다"
-                    else -> "로그인 실패 (${e.code()})"
+                    else -> serverMessage ?: "로그인 실패 (${e.code()})"
                 }
                 Log.e("CHECKIN", "전화번호 로그인 실패", e)
                 _uiState.value = _uiState.value.copy(isLoading = false, error = errorMsg)
@@ -84,7 +96,7 @@ class PhoneLoginViewModel @Inject constructor(
                 Log.e("CHECKIN", "네트워크 오류", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "서버에 연결할 수 없습니다",
+                    error = networkMonitor.networkErrorMessage(),
                 )
             }
         }

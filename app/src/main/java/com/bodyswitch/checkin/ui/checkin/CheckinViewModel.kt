@@ -15,6 +15,7 @@ import com.bodyswitch.checkin.data.model.Member
 import com.bodyswitch.checkin.data.model.Reservation
 import com.bodyswitch.checkin.data.model.Ticket
 import com.bodyswitch.checkin.data.model.TicketType
+import com.bodyswitch.checkin.data.network.NetworkMonitor
 import com.bodyswitch.checkin.data.session.SessionManager
 import com.squareup.moshi.Moshi
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -51,6 +52,7 @@ class CheckinViewModel @Inject constructor(
     private val api: KioskApi,
     private val moshi: Moshi,
     private val sessionManager: SessionManager,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     private val qrData: String? = savedStateHandle.get<String>("qrData")?.let {
@@ -120,7 +122,7 @@ class CheckinViewModel @Inject constructor(
                 Log.e("CHECKIN", "네트워크 오류", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "서버에 연결할 수 없습니다",
+                    error = networkMonitor.networkErrorMessage(),
                 )
             }
         }
@@ -337,7 +339,7 @@ class CheckinViewModel @Inject constructor(
             Log.e("CHECKIN", "출석 네트워크 오류", e)
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
-                error = "서버에 연결할 수 없습니다",
+                error = networkMonitor.networkErrorMessage(),
             )
         }
     }
@@ -387,7 +389,7 @@ class CheckinViewModel @Inject constructor(
             Log.e("CHECKIN", "체크인 네트워크 오류", e)
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
-                error = "서버에 연결할 수 없습니다",
+                error = networkMonitor.networkErrorMessage(),
             )
         }
     }

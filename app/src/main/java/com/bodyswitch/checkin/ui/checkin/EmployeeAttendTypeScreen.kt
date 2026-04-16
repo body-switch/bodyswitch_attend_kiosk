@@ -62,6 +62,7 @@ import com.bodyswitch.checkin.R
 import com.bodyswitch.checkin.data.api.KioskApi
 import com.bodyswitch.checkin.data.api.dto.EmployeeCheckinRequest
 import com.bodyswitch.checkin.data.api.dto.ErrorResponse
+import com.bodyswitch.checkin.data.network.NetworkMonitor
 import com.bodyswitch.checkin.data.session.EmployeeLoginHolder
 import com.squareup.moshi.Moshi
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -95,6 +96,7 @@ data class AttendTypeUiState(
 class EmployeeAttendTypeViewModel @Inject constructor(
     private val api: KioskApi,
     private val moshi: Moshi,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     val employeeName: String = EmployeeLoginHolder.employeeName ?: ""
@@ -145,7 +147,7 @@ class EmployeeAttendTypeViewModel @Inject constructor(
                 Log.e("CHECKIN", "직원 $attendType 네트워크 오류", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "서버에 연결할 수 없습니다",
+                    error = networkMonitor.networkErrorMessage(),
                 )
             }
         }

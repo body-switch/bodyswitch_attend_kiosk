@@ -8,6 +8,9 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -22,10 +25,21 @@ fun CameraPreview(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val executor = Executors.newSingleThreadExecutor()
+    val executor = remember { Executors.newSingleThreadExecutor() }
+    val currentOnQrDetected by rememberUpdatedState(onQrDetected)
 
     DisposableEffect(Unit) {
-        onDispose { executor.shutdown() }
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+        onDispose {
+            try {
+                if (cameraProviderFuture.isDone) {
+                    cameraProviderFuture.get().unbindAll()
+                }
+            } catch (e: Exception) {
+                Log.e("CameraPreview", "카메라 언바인딩 실패", e)
+            }
+            executor.shutdown()
+        }
     }
 
     AndroidView(
@@ -35,22 +49,23 @@ fun CameraPreview(
 
             val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
             cameraProviderFuture.addListener({
-                val cameraProvider = cameraProviderFuture.get()
+                if (executor.isShutdown) return@addListener
+                try {
+                    val cameraProvider = cameraProviderFuture.get()
 
-                val preview = Preview.Builder().build().also {
-                    it.surfaceProvider = previewView.surfaceProvider
-                }
-
-                val imageAnalysis = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .build()
-                    .also {
-                        it.setAnalyzer(executor, QrAnalyzer(onQrDetected))
+                    val preview = Preview.Builder().build().also {
+                        it.surfaceProvider = previewView.surfaceProvider
                     }
 
-                val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+                    val imageAnalysis = ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build()
+                        .also {
+                            it.setAnalyzer(executor, QrAnalyzer { qr -> currentOnQrDetected(qr) })
+                        }
 
-                try {
+                    val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+
                     cameraProvider.unbindAll()
                     cameraProvider.bindToLifecycle(
                         lifecycleOwner,

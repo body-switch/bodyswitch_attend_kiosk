@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bodyswitch.checkin.data.api.KioskApi
 import com.bodyswitch.checkin.data.api.dto.AdminLoginRequest
+import com.bodyswitch.checkin.data.network.NetworkMonitor
 import com.bodyswitch.checkin.data.session.AutoLoginManager
 import com.bodyswitch.checkin.data.session.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,6 +29,7 @@ class LoginViewModel @Inject constructor(
     private val api: KioskApi,
     private val sessionManager: SessionManager,
     private val autoLoginManager: AutoLoginManager,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -134,7 +136,7 @@ class LoginViewModel @Inject constructor(
                 Log.e("LOGIN", "네트워크 오류", e)
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "서버에 연결할 수 없습니다",
+                    error = networkMonitor.networkErrorMessage(),
                 )
             }
         }
