@@ -62,7 +62,9 @@ import com.bodyswitch.checkin.R
 import com.bodyswitch.checkin.data.api.KioskApi
 import com.bodyswitch.checkin.data.api.dto.EmployeeCheckinRequest
 import com.bodyswitch.checkin.data.api.dto.ErrorResponse
+import com.bodyswitch.checkin.data.api.dto.OpenDoorRequest
 import com.bodyswitch.checkin.data.network.NetworkMonitor
+import com.bodyswitch.checkin.data.session.CheckinSettingsManager
 import com.bodyswitch.checkin.data.session.EmployeeLoginHolder
 import com.squareup.moshi.Moshi
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -97,6 +99,7 @@ class EmployeeAttendTypeViewModel @Inject constructor(
     private val api: KioskApi,
     private val moshi: Moshi,
     private val networkMonitor: NetworkMonitor,
+    private val settingsManager: CheckinSettingsManager,
 ) : ViewModel() {
 
     val employeeName: String = EmployeeLoginHolder.employeeName ?: ""
@@ -132,6 +135,7 @@ class EmployeeAttendTypeViewModel @Inject constructor(
                     exitCount = response.exitCount,
                     message = response.message,
                 )
+                openDoorIfEnabled(token)
                 EmployeeLoginHolder.clear()
             } catch (e: retrofit2.HttpException) {
                 val errorBody = e.response()?.errorBody()?.string()
@@ -149,6 +153,24 @@ class EmployeeAttendTypeViewModel @Inject constructor(
                     isLoading = false,
                     error = networkMonitor.networkErrorMessage(),
                 )
+            }
+        }
+    }
+
+    /**
+     * 직원 체크인 성공 후 설정된 출입문을 best-effort로 1회 연다.
+     * 실패해도 출퇴근 처리에는 영향을 주지 않고 로그만 남긴다.
+     */
+    private fun openDoorIfEnabled(token: String) {
+        if (!settingsManager.doorOpenEnabled) return
+        val sensorId = settingsManager.doorSensorId
+        if (sensorId.isBlank()) return
+        viewModelScope.launch {
+            try {
+                api.openDoor("Bearer $token", OpenDoorRequest(sensorId))
+                Log.d("CHECKIN", "직원 체크인 출입문 열림 요청 성공: $sensorId")
+            } catch (e: Exception) {
+                Log.e("CHECKIN", "출입문 열기 실패(무시)", e)
             }
         }
     }

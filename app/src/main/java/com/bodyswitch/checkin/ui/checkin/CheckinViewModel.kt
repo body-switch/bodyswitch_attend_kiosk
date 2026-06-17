@@ -8,6 +8,8 @@ import com.bodyswitch.checkin.data.api.KioskApi
 import com.bodyswitch.checkin.data.api.dto.AttendRequest
 import com.bodyswitch.checkin.data.api.dto.CheckinRequest
 import com.bodyswitch.checkin.data.api.dto.ErrorResponse
+import com.bodyswitch.checkin.data.api.dto.OpenDoorRequest
+import com.bodyswitch.checkin.data.session.CheckinSettingsManager
 import com.bodyswitch.checkin.data.session.EmployeeLoginHolder
 import com.bodyswitch.checkin.data.api.dto.QrLoginRequest
 import com.bodyswitch.checkin.data.model.CoursePass
@@ -53,6 +55,7 @@ class CheckinViewModel @Inject constructor(
     private val moshi: Moshi,
     private val sessionManager: SessionManager,
     private val networkMonitor: NetworkMonitor,
+    private val settingsManager: CheckinSettingsManager,
 ) : ViewModel() {
 
     private val qrData: String? = savedStateHandle.get<String>("qrData")?.let {
@@ -325,6 +328,7 @@ class CheckinViewModel @Inject constructor(
                 checkinDone = true,
                 checkinMessage = response.message,
             )
+            openDoorIfEnabled()
         } catch (e: retrofit2.HttpException) {
             val errorBody = e.response()?.errorBody()?.string()
             val errorMsg = try {
@@ -373,6 +377,7 @@ class CheckinViewModel @Inject constructor(
                     autoCheckinDone = isAuto,
                     checkinMessage = body?.message,
                 )
+                openDoorIfEnabled()
             } else {
                 val errorBody = response.errorBody()?.string()
                 val errorMsg = try {
@@ -391,6 +396,25 @@ class CheckinViewModel @Inject constructor(
                 isLoading = false,
                 error = networkMonitor.networkErrorMessage(),
             )
+        }
+    }
+
+    /**
+     * 체크인 성공 후 설정된 출입문을 best-effort로 1회 연다.
+     * 실패해도 체크인 결과에는 영향을 주지 않고 로그만 남긴다.
+     */
+    private fun openDoorIfEnabled() {
+        if (!settingsManager.doorOpenEnabled) return
+        val sensorId = settingsManager.doorSensorId
+        if (sensorId.isBlank()) return
+        val bearerToken = "Bearer ${token ?: return}"
+        viewModelScope.launch {
+            try {
+                api.openDoor(bearerToken, OpenDoorRequest(sensorId))
+                Log.d("CHECKIN", "출입문 열림 요청 성공: $sensorId")
+            } catch (e: Exception) {
+                Log.e("CHECKIN", "출입문 열기 실패(무시)", e)
+            }
         }
     }
 

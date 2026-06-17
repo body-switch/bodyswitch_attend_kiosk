@@ -11,6 +11,8 @@ import com.bodyswitch.checkin.data.api.dto.AttendRequest
 import com.bodyswitch.checkin.data.api.dto.AttendResponse
 import com.bodyswitch.checkin.data.api.dto.CheckinRequest
 import com.bodyswitch.checkin.data.api.dto.CheckinResponse
+import com.bodyswitch.checkin.data.api.dto.DoorListResponse
+import com.bodyswitch.checkin.data.api.dto.OpenDoorRequest
 import com.bodyswitch.checkin.data.api.dto.EmployeeAttendHistoryResponse
 import com.bodyswitch.checkin.data.api.dto.EmployeeCheckinRequest
 import com.bodyswitch.checkin.data.api.dto.EmployeeCheckinResponse
@@ -152,4 +154,18 @@ interface KioskApi {
         @Header("Authorization") authorization: String,
         @Body request: StaffCallRequest,
     ): StaffCallResponse
+
+    // 지점 출입문 목록 조회 (출입문 설정 화면). 미연동 지점은 connected=false
+    @GET("kiosk/api/v1/iot/doors")
+    suspend fun getDoors(
+        @Header("Authorization") authorization: String,
+        @Query("branchId") branchId: Long,
+    ): DoorListResponse
+
+    // 출입문 열기 (체크인 성공 후 best-effort)
+    @POST("kiosk/api/v1/iot/door/open")
+    suspend fun openDoor(
+        @Header("Authorization") authorization: String,
+        @Body request: OpenDoorRequest,
+    ): Response<Unit>
 }
