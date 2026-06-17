@@ -33,6 +33,8 @@ data class CheckinUiState(
     val member: Member? = null,
     val selectedTicketId: Long? = null,
     val selectedTicketType: TicketType? = null,
+    // 선택된 티켓이 이용권형(이용권 또는 PASS형 체험권)인지 — true면 예약/차감 없이 바로 체크인
+    val selectedTicketIsPass: Boolean = false,
     val deductCount: Int = 1,
     val checkinDone: Boolean = false,
     val autoCheckinDone: Boolean = false,
@@ -165,6 +167,7 @@ class CheckinViewModel @Inject constructor(
                         remainCount = dto.remainCount,
                         startDate = dto.startDate,
                         expireDate = dto.expireDate,
+                        classType = dto.classType,
                         status = dto.status,
                     )
                 )
@@ -222,10 +225,18 @@ class CheckinViewModel @Inject constructor(
         // 같은 티켓 재선택 시 무시
         if (prev.selectedTicketId == ticketId && prev.selectedTicketType == ticketType) return
 
+        // PASS형 체험권은 이용권처럼 예약/차감 없이 바로 입장
+        val isPassTypeTrial = ticketType == TicketType.TRIAL_TICKET &&
+            prev.member?.tickets
+                ?.firstOrNull { it.id == ticketId && it.type == TicketType.TRIAL_TICKET }
+                ?.isPassType == true
+        val isPassLike = ticketType == TicketType.COURSE_PASS || isPassTypeTrial
+
         _uiState.value = prev.copy(
             selectedTicketId = ticketId,
             selectedTicketType = ticketType,
-            deductCount = if (ticketType == TicketType.COURSE_PASS) 0 else 1,
+            selectedTicketIsPass = isPassLike,
+            deductCount = if (isPassLike) 0 else 1,
             // 예약 상태 초기화
             reservations = emptyList(),
             reservationsLoaded = false,
@@ -233,8 +244,8 @@ class CheckinViewModel @Inject constructor(
             selectedReservationId = null,
         )
 
-        // 수강권/체험권 선택 시 예약 조회
-        if (ticketType == TicketType.COURSE_TICKET || ticketType == TicketType.TRIAL_TICKET) {
+        // 예약 차감형 수강권/체험권만 예약 조회 (PASS형 체험권 제외)
+        if (!isPassLike && (ticketType == TicketType.COURSE_TICKET || ticketType == TicketType.TRIAL_TICKET)) {
             loadReservations(ticketId, ticketType)
         }
     }
@@ -297,9 +308,9 @@ class CheckinViewModel @Inject constructor(
             when {
                 // 예약이 선택된 경우 출석 처리
                 state.selectedReservationId != null -> performAttend()
-                // 이용권(기간권)은 예약 없이 체크인 가능
-                state.selectedTicketType == TicketType.COURSE_PASS -> performCheckin(isAuto = false)
-                // 수강권/체험권은 예약 선택 필수 → 방어적으로 무시
+                // 이용권 또는 PASS형 체험권은 예약 없이 체크인 가능
+                state.selectedTicketIsPass -> performCheckin(isAuto = false)
+                // 예약 차감형 수강권/체험권은 예약 선택 필수 → 방어적으로 무시
                 else -> return@launch
             }
         }

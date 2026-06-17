@@ -284,6 +284,8 @@ fun CheckinScreen(
 
                     val selectedReservation = uiState.reservations.find { it.reservationId == uiState.selectedReservationId }
                     val canCheckin = when {
+                        // 이용권 또는 PASS형 체험권은 예약 없이 바로 체크인 가능
+                        uiState.selectedTicketIsPass -> true
                         uiState.selectedTicketType in listOf(TicketType.COURSE_TICKET, TicketType.TRIAL_TICKET) ->
                             selectedReservation != null && selectedReservation.status in listOf("ATTENDED", "RESERVED")
                         uiState.selectedTicketType == TicketType.COURSE_PASS -> true
@@ -415,6 +417,7 @@ fun CheckinScreen(
                             ) {
                                 AnimatedVisibility(
                                     visible = uiState.selectedTicketId != null &&
+                                        !uiState.selectedTicketIsPass &&
                                         uiState.selectedTicketType in listOf(TicketType.COURSE_TICKET, TicketType.TRIAL_TICKET),
                                     enter = expandVertically() + fadeIn(),
                                     exit = shrinkVertically() + fadeOut(),
@@ -507,9 +510,11 @@ fun CheckinScreen(
                             .padding(horizontal = 24.dp, vertical = 16.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        val isTicket = uiState.selectedTicketType in listOf(
-                            TicketType.COURSE_TICKET, TicketType.TRIAL_TICKET
-                        )
+                        // 차감형 수강권/체험권만 차감 안내 (PASS형 체험권 제외)
+                        val isTicket = !uiState.selectedTicketIsPass &&
+                            uiState.selectedTicketType in listOf(
+                                TicketType.COURSE_TICKET, TicketType.TRIAL_TICKET
+                            )
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -767,53 +772,56 @@ private fun TicketCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
+            // PASS형 체험권은 기간제 이용권이라 잔여횟수/진행바를 표시하지 않는다
+            if (!ticket.isPassType) {
+                Spacer(modifier = Modifier.height(2.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("잔여횟수", color = if (isExpired) TextMuted else TextGray, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        buildAnnotatedString {
-                            withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append("${ticket.remainCount}회") }
-                            append(" / ${ticket.usageCount}회")
-                        },
-                        color = if (isExpired) TextMuted else TextGray,
-                        fontSize = 14.sp,
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("잔여횟수", color = if (isExpired) TextMuted else TextGray, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            buildAnnotatedString {
+                                withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append("${ticket.remainCount}회") }
+                                append(" / ${ticket.usageCount}회")
+                            },
+                            color = if (isExpired) TextMuted else TextGray,
+                            fontSize = 14.sp,
+                        )
+                    }
+                    if (!isExpired) {
+                        Text(
+                            buildAnnotatedString {
+                                withStyle(SpanStyle(color = Primary, fontWeight = FontWeight.SemiBold)) { append("${ticket.remainCount}회 ") }
+                                withStyle(SpanStyle(color = TextWhite)) { append("남음") }
+                            },
+                            fontSize = 14.sp,
+                        )
+                    }
                 }
-                if (!isExpired) {
-                    Text(
-                        buildAnnotatedString {
-                            withStyle(SpanStyle(color = Primary, fontWeight = FontWeight.SemiBold)) { append("${ticket.remainCount}회 ") }
-                            withStyle(SpanStyle(color = TextWhite)) { append("남음") }
-                        },
-                        fontSize = 14.sp,
-                    )
-                }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(10.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(if (isExpired) ProgressTrack else PrimaryBg),
-            ) {
-                if (!isExpired && progress > 0f) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(progress)
-                            .height(10.dp)
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(Primary),
-                    )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(10.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(if (isExpired) ProgressTrack else PrimaryBg),
+                ) {
+                    if (!isExpired && progress > 0f) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(progress)
+                                .height(10.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(Primary),
+                        )
+                    }
                 }
             }
         }

@@ -15,8 +15,13 @@ data class Ticket(
     val remainCount: Int,
     val startDate: String?,
     val expireDate: String?,
+    val classType: String? = null,
     val status: String? = null,
-)
+) {
+    // 이용권형(PASS) 체험권: 횟수 차감/예약 없이 기간 내 입장만 하는 이용권처럼 동작
+    val isPassType: Boolean
+        get() = type == TicketType.TRIAL_TICKET && classType == "PASS"
+}
 
 enum class TicketType(val apiValue: String) {
     COURSE_TICKET("COURSE_TICKET"),
