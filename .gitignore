@@ -8,3 +8,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# 빌드 산출물 (AAB/APK)
+/app/release
+/.kotlin

@@ -17,9 +17,11 @@ import com.bodyswitch.checkin.ui.history.CheckinHistoryScreen
 import com.bodyswitch.checkin.ui.home.MainCheckinScreen
 import com.bodyswitch.checkin.ui.login.LoginScreen
 import com.bodyswitch.checkin.ui.settings.SettingsScreen
+import com.bodyswitch.checkin.ui.splash.SplashScreen
 import java.net.URLEncoder
 
 object Routes {
+    const val SPLASH = "splash"
     const val LOGIN = "login"
     const val HOME = "home"
     const val CHECKIN_QR = "checkin_qr/{qrData}"
@@ -55,8 +57,18 @@ fun NavGraph(sessionManager: SessionManager, checkinSettingsManager: CheckinSett
 
     NavHost(
         navController = navController,
-        startDestination = Routes.LOGIN,
+        startDestination = Routes.SPLASH,
     ) {
+        composable(Routes.SPLASH) {
+            SplashScreen(
+                onSplashFinished = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(Routes.SPLASH) { inclusive = true }
+                    }
+                },
+            )
+        }
+
         composable(Routes.LOGIN) {
             LoginScreen(
                 onLoginSuccess = {
@@ -139,14 +151,26 @@ fun NavGraph(sessionManager: SessionManager, checkinSettingsManager: CheckinSett
 
         composable(Routes.HISTORY) {
             CheckinHistoryScreen(
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                },
             )
         }
 
         composable(Routes.SETTINGS) {
             SettingsScreen(
                 checkinSettingsManager = checkinSettingsManager,
-                onBack = { navController.popBackStack() },
+                onBack = {
+                    if (!navController.popBackStack()) {
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                },
             )
         }
 
