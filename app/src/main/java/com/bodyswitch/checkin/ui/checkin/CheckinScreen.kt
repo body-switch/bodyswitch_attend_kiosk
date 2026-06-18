@@ -277,8 +277,11 @@ fun CheckinScreen(
 
                 else -> {
                     val member = uiState.member!!
-                    val activeTickets = member.tickets.filter { it.status != "INACTIVE" }
-                    val expiredTickets = member.tickets.filter { it.status == "INACTIVE" }
+                    // PASS형 체험권(이용권형)은 "이용권" 섹션에 노출한다. 레슨형 체험권/수강권만 "수강권" 섹션.
+                    val activeTickets = member.tickets.filter { it.status != "INACTIVE" && !it.isPassType }
+                    val expiredTickets = member.tickets.filter { it.status == "INACTIVE" && !it.isPassType }
+                    val activePassTrials = member.tickets.filter { it.status != "INACTIVE" && it.isPassType }
+                    val expiredPassTrials = member.tickets.filter { it.status == "INACTIVE" && it.isPassType }
                     val activePasses = member.passes.filter { it.status != "INACTIVE" }
                     val expiredPasses = member.passes.filter { it.status == "INACTIVE" }
 
@@ -434,10 +437,35 @@ fun CheckinScreen(
                             Spacer(modifier = Modifier.height(12.dp))
                         }
 
-                        // 사용 중인 이용권
-                        if (activePasses.isNotEmpty()) {
-                            SectionHeader(title = "사용 중인 이용권", count = activePasses.size, countColor = Primary)
+                        // 사용 중인 이용권 (이용권 + PASS형 체험권)
+                        if (activePasses.isNotEmpty() || activePassTrials.isNotEmpty()) {
+                            SectionHeader(
+                                title = "사용 중인 이용권",
+                                count = activePasses.size + activePassTrials.size,
+                                countColor = Primary,
+                            )
                             Spacer(modifier = Modifier.height(12.dp))
+                            // PASS형 체험권 (이용권처럼 예약 없이 입장)
+                            activePassTrials.chunked(2).forEach { row ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                ) {
+                                    row.forEach { ticket ->
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            TicketCard(
+                                                ticket = ticket,
+                                                isSelected = uiState.selectedTicketId == ticket.id &&
+                                                    uiState.selectedTicketType == TicketType.TRIAL_TICKET,
+                                                isExpired = false,
+                                                onClick = { viewModel.selectTicket(ticket.id, ticket.type) },
+                                            )
+                                        }
+                                    }
+                                    if (row.size < 2) Spacer(modifier = Modifier.weight(1f))
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
                             activePasses.chunked(2).forEach { row ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
@@ -480,10 +508,28 @@ fun CheckinScreen(
                             }
                         }
 
-                        // 만료된 이용권
-                        if (expiredPasses.isNotEmpty()) {
-                            SectionHeader(title = "만료된 이용권", count = expiredPasses.size, countColor = TextMuted)
+                        // 만료된 이용권 (이용권 + PASS형 체험권)
+                        if (expiredPasses.isNotEmpty() || expiredPassTrials.isNotEmpty()) {
+                            SectionHeader(
+                                title = "만료된 이용권",
+                                count = expiredPasses.size + expiredPassTrials.size,
+                                countColor = TextMuted,
+                            )
                             Spacer(modifier = Modifier.height(12.dp))
+                            expiredPassTrials.chunked(2).forEach { row ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                ) {
+                                    row.forEach { ticket ->
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            TicketCard(ticket = ticket, isSelected = false, isExpired = true, onClick = {})
+                                        }
+                                    }
+                                    if (row.size < 2) Spacer(modifier = Modifier.weight(1f))
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
                             expiredPasses.chunked(2).forEach { row ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
