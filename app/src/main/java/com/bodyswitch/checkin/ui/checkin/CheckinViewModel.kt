@@ -168,6 +168,7 @@ class CheckinViewModel @Inject constructor(
                         startDate = dto.startDate,
                         expireDate = dto.expireDate,
                         classType = dto.classType,
+                        usageType = dto.usageType,
                         status = dto.status,
                     )
                 )

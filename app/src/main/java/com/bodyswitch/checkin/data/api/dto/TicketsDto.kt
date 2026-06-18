@@ -23,6 +23,8 @@ data class TicketDto(
     val ticketType: String,
     // 체험권 수업 유형(PASS면 이용권형 → 횟수 차감/예약 없이 입장). 수강권/레슨형은 null 또는 PASS 외 값.
     val classType: String? = null,
+    // 일일권 이용구분(PERIOD=기간제면 이용권형 → 차감/잔여횟수/예약 없이 기간 내 입장. COUNT=횟수제).
+    val usageType: String? = null,
     val status: String? = null,
 )
 
