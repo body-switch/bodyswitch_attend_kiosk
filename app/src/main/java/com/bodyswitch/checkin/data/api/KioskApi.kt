@@ -13,6 +13,8 @@ import com.bodyswitch.checkin.data.api.dto.CheckinRequest
 import com.bodyswitch.checkin.data.api.dto.CheckinResponse
 import com.bodyswitch.checkin.data.api.dto.DoorListResponse
 import com.bodyswitch.checkin.data.api.dto.OpenDoorRequest
+import com.bodyswitch.checkin.data.api.dto.ReentryRequest
+import com.bodyswitch.checkin.data.api.dto.ReentryResponse
 import com.bodyswitch.checkin.data.api.dto.EmployeeAttendHistoryResponse
 import com.bodyswitch.checkin.data.api.dto.EmployeeCheckinRequest
 import com.bodyswitch.checkin.data.api.dto.EmployeeCheckinResponse
@@ -119,6 +121,14 @@ interface KioskApi {
         @Header("X-Admin-Token") adminToken: String?,
         @Body request: AttendRequest,
     ): AttendResponse
+
+    // 무차감 재입장 (당일 출석 회원)
+    @POST("kiosk/api/v1/checkin/reentry")
+    suspend fun reentry(
+        @Header("Authorization") authorization: String,
+        @Header("X-Admin-Token") adminToken: String?,
+        @Body request: ReentryRequest,
+    ): ReentryResponse
 
     // 체크인 취소 (관리자)
     @POST("kiosk/api/v1/checkin/cancel")

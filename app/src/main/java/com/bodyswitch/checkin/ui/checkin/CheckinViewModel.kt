@@ -9,6 +9,7 @@ import com.bodyswitch.checkin.data.api.dto.AttendRequest
 import com.bodyswitch.checkin.data.api.dto.CheckinRequest
 import com.bodyswitch.checkin.data.api.dto.ErrorResponse
 import com.bodyswitch.checkin.data.api.dto.OpenDoorRequest
+import com.bodyswitch.checkin.data.api.dto.ReentryRequest
 import com.bodyswitch.checkin.data.session.CheckinSettingsManager
 import com.bodyswitch.checkin.data.session.EmployeeLoginHolder
 import com.bodyswitch.checkin.data.api.dto.QrLoginRequest
@@ -191,6 +192,13 @@ class CheckinViewModel @Inject constructor(
                 passes = passes,
             )
 
+            // 당일 출석/입장 이력이 있으면 이용권/예약 선택 없이 바로 무차감 재입장
+            if (response.reentry?.eligible == true) {
+                _uiState.value = CheckinUiState(isLoading = true, member = member)
+                performReentry(response.reentry.message)
+                return
+            }
+
             val activeTickets = tickets.filter { it.status != "INACTIVE" }
             val activePasses = passes.filter { it.status != "INACTIVE" }
 
@@ -353,6 +361,48 @@ class CheckinViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = false, error = errorMsg)
         } catch (e: Exception) {
             Log.e("CHECKIN", "출석 네트워크 오류", e)
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = networkMonitor.networkErrorMessage(),
+            )
+        }
+    }
+
+    /**
+     * 무차감 재입장 처리. 당일 출석 회원을 차감/만료 없이 입장시키고 출입문을 연다.
+     */
+    private suspend fun performReentry(reentryMessage: String?) {
+        val bearerToken = "Bearer ${token ?: return}"
+        val branchId = sessionManager.branchId ?: return
+
+        try {
+            val response = api.reentry(
+                authorization = bearerToken,
+                adminToken = sessionManager.token,
+                request = ReentryRequest(
+                    branchId = branchId,
+                    checkInMethod = checkInMethod,
+                ),
+            )
+            Log.d("CHECKIN", "재입장 처리 성공: ${response.message}")
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                checkinDone = true,
+                checkinMessage = response.message ?: reentryMessage,
+            )
+            openDoorIfEnabled()
+        } catch (e: retrofit2.HttpException) {
+            val errorBody = e.response()?.errorBody()?.string()
+            val errorMsg = try {
+                moshi.adapter(ErrorResponse::class.java)
+                    .fromJson(errorBody ?: "")?.message
+            } catch (_: Exception) {
+                null
+            } ?: "재입장 처리에 실패했습니다 (${e.code()})"
+            Log.e("CHECKIN", "재입장 처리 실패: $errorMsg")
+            _uiState.value = _uiState.value.copy(isLoading = false, error = errorMsg)
+        } catch (e: Exception) {
+            Log.e("CHECKIN", "재입장 네트워크 오류", e)
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 error = networkMonitor.networkErrorMessage(),

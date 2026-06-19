@@ -9,6 +9,17 @@ data class TicketsResponse(
     val courseTickets: List<TicketDto>? = null,
     val trialTickets: List<TicketDto>? = null,
     val coursePasses: List<CoursePassDto>? = null,
+    // 무차감 재입장 정보. eligible=true면 이용권/예약 선택 없이 바로 재입장 처리.
+    val reentry: ReentryInfo? = null,
+)
+
+// 당일 출석/입장 이력이 있는 회원의 무차감 재입장 정보
+@JsonClass(generateAdapter = true)
+data class ReentryInfo(
+    val eligible: Boolean = false,
+    val type: String? = null,
+    val untilTime: String? = null,
+    val message: String? = null,
 )
 
 @JsonClass(generateAdapter = true)

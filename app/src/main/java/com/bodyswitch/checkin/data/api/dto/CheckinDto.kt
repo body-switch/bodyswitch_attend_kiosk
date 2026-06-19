@@ -63,6 +63,21 @@ data class StaffCallResponse(
     val message: String?,
 )
 
+// 무차감 재입장 (당일 출석 회원)
+@JsonClass(generateAdapter = true)
+data class ReentryRequest(
+    val branchId: Long,
+    val checkInMethod: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class ReentryResponse(
+    val success: Boolean,
+    val message: String?,
+    val type: String?,
+    val untilTime: String?,
+)
+
 // 예약 출석
 @JsonClass(generateAdapter = true)
 data class AttendRequest(
