@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -113,6 +114,7 @@ fun MainCheckinScreen(
     onQrScanned: (String) -> Unit,
     onPhoneLogin: (String) -> Unit,
     onEmployeeAttendType: () -> Unit = {},
+    onAccessRegistration: () -> Unit = {},
     onHistoryClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onLogout: () -> Unit,
@@ -305,6 +307,7 @@ fun MainCheckinScreen(
                 TopBar(
                     centerName = sessionManager.businessName ?: sessionManager.branchName ?: "",
                     onStaffCall = { showStaffCallDialog = true },
+                    onAccessRegistration = onAccessRegistration,
                     onDateClick = { scope.launch { drawerState.open() } },
                     switchText = when (currentMode) {
                         CheckinMode.QR -> "전화 체크인"
@@ -887,6 +890,7 @@ private fun CameraPermissionPlaceholder(onRequest: () -> Unit) {
 private fun TopBar(
     centerName: String,
     onStaffCall: () -> Unit,
+    onAccessRegistration: () -> Unit = {},
     onDateClick: () -> Unit = {},
     switchText: String = "",
     onSwitch: () -> Unit = {},
@@ -940,6 +944,19 @@ private fun TopBar(
                 ) {
                     Text(switchText, fontSize = 20.sp, fontWeight = FontWeight.Medium, color = Color.White)
                 }
+            }
+            // 출입등록 (teal 채움 pill) — 안면등록/QR 발급 플로우 진입
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Color(0xFF45B6B0))
+                    .clickable { onAccessRegistration() }
+                    .padding(horizontal = 24.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Default.Face, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF062B2A))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("출입등록", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF062B2A))
             }
             Box(
                 modifier = Modifier

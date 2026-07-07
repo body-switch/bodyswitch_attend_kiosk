@@ -4,6 +4,7 @@ kotlin = "2.1.0"
 compose-bom = "2024.12.01"
 camerax = "1.4.1"
 mlkit-barcode = "17.3.0"
+zxing = "3.5.3"
 hilt = "2.53.1"
 ksp = "2.1.0-1.0.29"
 navigation = "2.8.5"
@@ -40,6 +41,9 @@ camerax-view = { module = "androidx.camera:camera-view", version.ref = "camerax"
 
 # ML Kit
 mlkit-barcode = { module = "com.google.mlkit:barcode-scanning", version.ref = "mlkit-barcode" }
+
+# ZXing (QR 코드 생성)
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 
 # DI
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }

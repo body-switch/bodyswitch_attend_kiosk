@@ -14,8 +14,8 @@ android {
         applicationId = "com.bodyswitch.checkin"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.0.2"
+        versionCode = 4
+        versionName = "1.0.3"
     }
 
     buildTypes {
@@ -68,6 +68,9 @@ dependencies {
 
     // ML Kit Barcode
     implementation(libs.mlkit.barcode)
+
+    // ZXing (QR 코드 생성)
+    implementation(libs.zxing.core)
 
     // Hilt
     implementation(libs.hilt.android)

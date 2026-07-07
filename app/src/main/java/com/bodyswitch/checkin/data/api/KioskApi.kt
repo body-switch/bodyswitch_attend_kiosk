@@ -12,6 +12,10 @@ import com.bodyswitch.checkin.data.api.dto.AttendResponse
 import com.bodyswitch.checkin.data.api.dto.CheckinRequest
 import com.bodyswitch.checkin.data.api.dto.CheckinResponse
 import com.bodyswitch.checkin.data.api.dto.DoorListResponse
+import com.bodyswitch.checkin.data.api.dto.FaceRegistrationRequest
+import com.bodyswitch.checkin.data.api.dto.FaceRegistrationResponse
+import com.bodyswitch.checkin.data.api.dto.QrIssuanceRequest
+import com.bodyswitch.checkin.data.api.dto.QrIssuanceResponse
 import com.bodyswitch.checkin.data.api.dto.OpenDoorRequest
 import com.bodyswitch.checkin.data.api.dto.ReentryRequest
 import com.bodyswitch.checkin.data.api.dto.ReentryResponse
@@ -31,6 +35,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Query
 
 interface KioskApi {
@@ -164,6 +169,20 @@ interface KioskApi {
         @Header("Authorization") authorization: String,
         @Body request: StaffCallRequest,
     ): StaffCallResponse
+
+    // 출입 안면등록 (재등록 시 덮어쓰기). 406 = 이미지 품질 문제(body의 한글 메시지 표시)
+    @PUT("kiosk/api/v1/face-registration")
+    suspend fun registerFace(
+        @Header("Authorization") authorization: String,
+        @Body request: FaceRegistrationRequest,
+    ): FaceRegistrationResponse
+
+    // 출입 QR 발급
+    @POST("kiosk/api/v1/qr-issuance")
+    suspend fun issueQr(
+        @Header("Authorization") authorization: String,
+        @Body request: QrIssuanceRequest,
+    ): QrIssuanceResponse
 
     // 지점 출입문 목록 조회 (출입문 설정 화면). 미연동 지점은 connected=false
     @GET("kiosk/api/v1/iot/doors")
