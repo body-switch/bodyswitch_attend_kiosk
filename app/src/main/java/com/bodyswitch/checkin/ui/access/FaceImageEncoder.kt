@@ -19,7 +19,16 @@ object FaceImageEncoder {
         val buffer = image.planes[0].buffer
         val bytes = ByteArray(buffer.remaining()).also { buffer.get(it) }
 
-        val source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        // 1) 바운즈만 먼저 읽어 원본 해상도 확인 (MAXIMIZE_QUALITY 캡처는 풀센서 = 최대 수천만 픽셀)
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+
+        // 2) 디코드 단계에서 다운샘플 → 풀해상도 ARGB_8888(수십 MB) 할당 자체를 회피 (OOM 예방)
+        //    긴 변이 목표(1280) 이상은 유지하도록 2의 거듭제곱 샘플링만 적용 (품질 손실 없음)
+        val decodeOptions = BitmapFactory.Options().apply {
+            inSampleSize = computeInSampleSize(maxOf(bounds.outWidth, bounds.outHeight), MAX_LONG_SIDE)
+        }
+        val source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOptions)
             ?: throw IllegalStateException("촬영 이미지 디코딩 실패")
 
         // rotationDegrees = 업라이트 표시에 필요한 회전량 (JPEG 버퍼의 EXIF는 decode 시 무시됨)
@@ -51,5 +60,12 @@ object FaceImageEncoder {
         scaled.recycle()
 
         return Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
+    }
+
+    // 긴 변이 target 이상으로 남는 최대 2의 거듭제곱 샘플링 값 (이후 정확히 1280으로 스케일)
+    private fun computeInSampleSize(longSide: Int, target: Int): Int {
+        var sample = 1
+        while (longSide / (sample * 2) >= target) sample *= 2
+        return sample
     }
 }

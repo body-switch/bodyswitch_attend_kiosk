@@ -1,29 +1,44 @@
 package com.bodyswitch.checkin.ui.access
 
 import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
 import android.util.Log
+import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -31,6 +46,7 @@ import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.WarningAmber
@@ -48,6 +64,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,12 +80,14 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -81,8 +100,10 @@ import com.bodyswitch.checkin.ui.home.StaffCallViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -113,8 +134,20 @@ private val AvatarIcon = Color(0xFF8B949B)
 private val QrModule = Color(0xFF0D3B39)
 private val Red = Color(0xFFE53935)
 private val PanelBg = Color(0x14FFFFFF)
+// 안면 규격 통과(UBio 품질체크 예상 통과) 시 강조하는 초록
+private val SuccessGreen = Color(0xFF22C55E)
 
 private const val MASKED_PHONE = "010-XXXX-XXXX"
+
+// Compose Context에서 호스트 Activity 탐색 (orientation 제어용)
+private fun Context.findActivity(): Activity? {
+    var ctx: Context? = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -129,6 +162,34 @@ fun AccessRegistrationScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showStaffCallDialog by remember { mutableStateOf(false) }
     var snackbarIsSuccess by remember { mutableStateOf(false) }
+
+    // 출입등록 플로우는 세로 화면으로 (나가면 원래 가로로 복원)
+    // 첫 컴포지션에서 즉시 세로 요청 → 첫 프레임부터 세로 (가로 깜빡임 방지).
+    // configChanges(orientation) + rotationAnimation=JUMPCUT → 회전 애니메이션 없이 즉시 세로로 전환.
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
+    val previousOrientation = remember {
+        // 회전 애니메이션 제거 (점프컷 = 즉시 전환)
+        activity?.window?.let { w ->
+            w.attributes = w.attributes.apply {
+                rotationAnimation = WindowManager.LayoutParams.ROTATION_ANIMATION_JUMPCUT
+            }
+        }
+        activity?.requestedOrientation.also {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            activity?.requestedOrientation = previousOrientation ?: ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            // 회전 애니메이션 기본값으로 복원
+            activity?.window?.let { w ->
+                w.attributes = w.attributes.apply {
+                    rotationAnimation = WindowManager.LayoutParams.ROTATION_ANIMATION_ROTATE
+                }
+            }
+        }
+    }
 
     val staffCallState by staffCallViewModel.state.collectAsState()
 
@@ -335,7 +396,18 @@ private fun AccessTopBar(
             }
             Text(timeFormat.format(now), fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = Color.White, letterSpacing = (-0.3).sp)
         }
-        Text(centerName, fontSize = 28.sp, fontWeight = FontWeight.Medium, color = Color.White)
+        Text(
+            centerName,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 12.dp),
+        )
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -374,32 +446,122 @@ private fun FlowChrome(
     onBack: () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Text(
-            text = "← 뒤로가기",
-            fontSize = 26.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextSoft,
+    val scrollState = rememberScrollState()
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        // 폭이 넉넉하면(≈800dp+) 뒤로가기+인디케이터를 한 줄에,
+        // 좁으면(8인치급 ~600dp) 라벨 겹침 방지를 위해 뒤로가기를 윗줄로 분리
+        BoxWithConstraints(
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(start = 44.dp, top = 8.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                ) { onBack() }
-                .padding(8.dp),
-        )
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .fillMaxWidth()
+                .padding(top = 10.dp),
         ) {
-            if (stepIndex != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                StepIndicator(current = stepIndex)
+            val sameLine = maxWidth >= 820.dp
+            if (sameLine) {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    BackChip(onBack = onBack, modifier = Modifier.align(Alignment.CenterStart).padding(start = 24.dp))
+                    if (stepIndex != null) {
+                        StepIndicator(current = stepIndex)
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        BackChip(onBack = onBack, modifier = Modifier.align(Alignment.CenterStart).padding(start = 24.dp))
+                    }
+                    if (stepIndex != null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        StepIndicator(current = stepIndex)
+                    }
+                }
             }
-            content()
         }
+
+        // 콘텐츠(스크롤) + 하단 "아래로 넘기기" 안내
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
+                content()
+                Spacer(modifier = Modifier.height(40.dp))
+            }
+            // 아직 아래에 더 볼 내용이 있으면 안내를 노출 (다 내리면 자동으로 사라짐)
+            ScrollDownHint(
+                visible = scrollState.value < scrollState.maxValue,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(),
+            )
+        }
+    }
+}
+
+// ─── 작은 뒤로가기 칩 ───
+@Composable
+private fun BackChip(onBack: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(PanelBg)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) { onBack() }
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("←", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextSoft)
+        Spacer(modifier = Modifier.width(6.dp))
+        Text("뒤로", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextSoft)
+    }
+}
+
+// ─── 스크롤 안내: 어르신도 알아보게 큰 화살표 + 문구 (더 볼 내용 있을 때만) ───
+@Composable
+private fun ScrollDownHint(visible: Boolean, modifier: Modifier = Modifier) {
+    if (!visible) return
+    val transition = rememberInfiniteTransition(label = "scrollHint")
+    val bounce by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 10f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 600),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "bounce",
+    )
+    Column(
+        modifier = modifier
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(Color.Transparent, Color(0xFF0B0E11).copy(alpha = 0.9f)),
+                ),
+            )
+            .padding(top = 28.dp, bottom = 18.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("아래로 넘겨서 계속 보기", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextSoft)
+        Icon(
+            imageVector = Icons.Default.KeyboardArrowDown,
+            contentDescription = null,
+            tint = Teal,
+            modifier = Modifier
+                .size(52.dp)
+                .offset(y = bounce.dp),
+        )
     }
 }
 
@@ -407,28 +569,29 @@ private fun FlowChrome(
 @Composable
 private fun StepIndicator(current: Int) {
     val labels = listOf("전화번호", "회원확인", "수단선택", "발급")
+    // 뒤로가기 칩과 같은 라인에 들어가도록 컴팩트하게 구성
     Row(verticalAlignment = Alignment.CenterVertically) {
         labels.forEachIndexed { index, label ->
             val active = index <= current
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(34.dp)
                         .clip(CircleShape)
                         .background(if (active) Teal else StepInactiveDot),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = "${index + 1}",
-                        fontSize = 20.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = if (active) OnTeal else StepInactiveText,
                     )
                 }
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = label,
-                    fontSize = 22.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = if (active) TextPrimary else StepInactiveText,
                 )
@@ -436,8 +599,8 @@ private fun StepIndicator(current: Int) {
             if (index < labels.lastIndex) {
                 Box(
                     modifier = Modifier
-                        .padding(horizontal = 14.dp)
-                        .width(56.dp)
+                        .padding(horizontal = 10.dp)
+                        .width(30.dp)
                         .height(3.dp)
                         .background(if (index < current) Teal else StepInactiveDot),
                 )
@@ -450,9 +613,9 @@ private fun StepIndicator(current: Int) {
 @Composable
 private fun TealButton(
     text: String,
-    width: androidx.compose.ui.unit.Dp,
     height: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
+    width: androidx.compose.ui.unit.Dp? = null,
     fontSize: androidx.compose.ui.unit.TextUnit = 34.sp,
     enabled: Boolean = true,
     icon: (@Composable () -> Unit)? = null,
@@ -460,7 +623,7 @@ private fun TealButton(
 ) {
     Row(
         modifier = modifier
-            .width(width)
+            .then(if (width != null) Modifier.width(width) else Modifier)
             .height(height)
             .clip(RoundedCornerShape(22.dp))
             .background(if (enabled) Teal else DisabledBtnBg)
@@ -484,14 +647,15 @@ private fun TealButton(
 @Composable
 private fun GhostButton(
     text: String,
-    width: androidx.compose.ui.unit.Dp,
     height: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
+    width: androidx.compose.ui.unit.Dp? = null,
     fontSize: androidx.compose.ui.unit.TextUnit = 34.sp,
     onClick: () -> Unit,
 ) {
     Box(
-        modifier = Modifier
-            .width(width)
+        modifier = modifier
+            .then(if (width != null) Modifier.width(width) else Modifier)
             .height(height)
             .clip(RoundedCornerShape(22.dp))
             .border(2.dp, GhostBorder, RoundedCornerShape(22.dp))
@@ -520,17 +684,24 @@ private fun PhoneStep(
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        // 8자리 셀: 4 + 대시 + 4
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            repeat(4) { i -> DigitCell(char = uiState.digits.getOrNull(i)) }
+        // 8자리 셀: 4 + 대시 + 4 (폭 비례로 어떤 태블릿에서도 맞게)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 520.dp)
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            repeat(4) { i -> DigitCell(char = uiState.digits.getOrNull(i), modifier = Modifier.weight(1f)) }
             Box(
                 modifier = Modifier
-                    .padding(horizontal = 14.dp)
-                    .width(24.dp)
+                    .padding(horizontal = 6.dp)
+                    .width(20.dp)
                     .height(4.dp)
                     .background(DashColor),
             )
-            repeat(4) { i -> DigitCell(char = uiState.digits.getOrNull(i + 4)) }
+            repeat(4) { i -> DigitCell(char = uiState.digits.getOrNull(i + 4), modifier = Modifier.weight(1f)) }
         }
 
         Spacer(modifier = Modifier.height(28.dp))
@@ -581,10 +752,13 @@ private fun PhoneStep(
         } else {
             TealButton(
                 text = "다음 →",
-                width = 420.dp,
                 height = 88.dp,
                 fontSize = 34.sp,
                 enabled = uiState.digits.length == AccessRegistrationViewModel.PHONE_DIGITS,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 440.dp)
+                    .padding(horizontal = 24.dp),
                 onClick = onNext,
             )
         }
@@ -592,18 +766,16 @@ private fun PhoneStep(
 }
 
 @Composable
-private fun DigitCell(char: Char?) {
+private fun DigitCell(char: Char?, modifier: Modifier = Modifier) {
     Box(
-        modifier = Modifier
-            .padding(horizontal = 5.dp)
-            .width(74.dp)
+        modifier = modifier
             .height(88.dp)
             .clip(RoundedCornerShape(18.dp))
             .background(CellBg)
             .border(3.dp, if (char != null) Teal else CellBorder, RoundedCornerShape(18.dp)),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = char?.toString() ?: "", fontSize = 48.sp, fontWeight = FontWeight.ExtraBold, color = Teal)
+        Text(text = char?.toString() ?: "", fontSize = 44.sp, fontWeight = FontWeight.ExtraBold, color = Teal)
     }
 }
 
@@ -661,9 +833,15 @@ private fun ConfirmStep(
         Text("맞으시면 출입 수단 선택으로 이동합니다", fontSize = 24.sp, fontWeight = FontWeight.Medium, color = TextMuted)
 
         Spacer(modifier = Modifier.height(28.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(26.dp)) {
-            GhostButton(text = "아니요", width = 320.dp, height = 106.dp, onClick = onNo)
-            TealButton(text = "네, 맞습니다", width = 400.dp, height = 106.dp, onClick = onYes)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 760.dp)
+                .padding(horizontal = 32.dp),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            GhostButton(text = "아니요", height = 106.dp, modifier = Modifier.weight(1f), onClick = onNo)
+            TealButton(text = "네, 맞습니다", height = 106.dp, modifier = Modifier.weight(1.4f), onClick = onYes)
         }
     }
 }
@@ -687,17 +865,26 @@ private fun MethodStep(
         if (isLoading) {
             CircularProgressIndicator(color = Teal, modifier = Modifier.size(64.dp))
         } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(36.dp)) {
+            // 세로 화면에서는 카드를 세로로 쌓아 오버플로우 방지
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = 620.dp)
+                    .padding(horizontal = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+            ) {
                 MethodCard(
                     title = "안면등록",
                     subtitle = "안면인식으로 간편하게!",
                     icon = { Icon(Icons.Default.Face, contentDescription = null, modifier = Modifier.size(76.dp), tint = Teal) },
+                    modifier = Modifier.fillMaxWidth(),
                     onClick = onPickFace,
                 )
                 MethodCard(
                     title = "QR 코드",
                     subtitle = "찍고 바로 입장!",
                     icon = { Icon(Icons.Default.QrCode2, contentDescription = null, modifier = Modifier.size(76.dp), tint = Teal) },
+                    modifier = Modifier.fillMaxWidth(),
                     onClick = onPickQr,
                 )
             }
@@ -711,11 +898,12 @@ private fun MethodCard(
     subtitle: String,
     icon: @Composable () -> Unit,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    height: androidx.compose.ui.unit.Dp = 240.dp,
 ) {
     Box(
-        modifier = Modifier
-            .width(470.dp)
-            .height(420.dp)
+        modifier = modifier
+            .height(height)
             .clip(RoundedCornerShape(32.dp))
             .background(Brush.linearGradient(listOf(CardGradientStart, CardGradientEnd)))
             .border(2.dp, CellBorder, RoundedCornerShape(32.dp))
@@ -767,6 +955,13 @@ private fun FaceStep(
         onDispose { captureExecutor.shutdown() }
     }
 
+    // 실시간 얼굴 검증 결과 (UBio 규격 충족 여부). 초기값 = 얼굴 미검출.
+    var faceResult by remember {
+        mutableStateOf(FaceValidationResult(false, "얼굴을 카메라에 비춰주세요"))
+    }
+    // 촬영(등록) 중에는 마지막 상태를 유지 (오버레이 위 프리뷰 분석은 멈춤)
+    val faceValid = faceResult.isValid && !isRegistering
+
     fun capture() {
         onStartCapture()
         imageCapture.takePicture(
@@ -803,17 +998,27 @@ private fun FaceStep(
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        // 카메라 + 점선 가이드 + 촬영 오버레이
+        // 카메라 + 실시간 가이드 + 촬영 오버레이 (폭 비례 정사각형)
+        // 규격 충족 시 박스 테두리가 초록으로 바뀌어 "지금 찍으면 됩니다"를 알림
         Box(
             modifier = Modifier
-                .size(480.dp)
+                .fillMaxWidth()
+                .widthIn(max = 480.dp)
+                .padding(horizontal = 24.dp)
+                .aspectRatio(1f)
                 .clip(RoundedCornerShape(32.dp))
-                .background(Color(0xFF404040)),
+                .background(Color(0xFF404040))
+                .border(
+                    width = if (faceValid) 6.dp else 0.dp,
+                    color = if (faceValid) SuccessGreen else Color.Transparent,
+                    shape = RoundedCornerShape(32.dp),
+                ),
             contentAlignment = Alignment.Center,
         ) {
             if (cameraPermission.status.isGranted) {
                 FaceCameraPreview(
                     imageCapture = imageCapture,
+                    onFaceResult = { faceResult = it },
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
@@ -831,46 +1036,89 @@ private fun FaceStep(
                     }
                 }
             }
-            FaceGuideOverlay()
+            FaceGuideOverlay(valid = faceValid)
+            // 규격 충족 시 상단에 체크 배지
+            if (faceValid) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 20.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(SuccessGreen)
+                        .padding(horizontal = 20.dp, vertical = 10.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(26.dp), tint = Color.White)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("좋아요!", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                    }
+                }
+            }
             if (isRegistering) {
                 CaptureOverlay()
             }
         }
 
-        Spacer(modifier = Modifier.height(22.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
+        // 실시간 안내: 규격 충족 시 초록 "촬영하세요", 아니면 교정 문구
+        if (cameraPermission.status.isGranted && !isRegistering) {
+            val guideText = if (faceValid) "얼굴이 잘 잡혔어요. 촬영 버튼을 눌러주세요" else faceResult.feedbackMessage
+            Text(
+                text = guideText,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (faceValid) SuccessGreen else Yellow,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // 촬영 버튼: 규격을 충족(초록)했을 때만 활성 → UBio 품질체크 탈락 최소화
         TealButton(
             text = "촬영하기",
-            width = 480.dp,
             height = 96.dp,
             fontSize = 34.sp,
-            enabled = cameraPermission.status.isGranted && !isRegistering,
-            icon = { Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(36.dp), tint = OnTeal) },
+            enabled = faceValid,
+            icon = { Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(36.dp), tint = if (faceValid) OnTeal else TextDisabled) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 480.dp)
+                .padding(horizontal = 24.dp),
             onClick = { capture() },
         )
     }
 }
 
-// 점선 얼굴 가이드 + 4모서리 teal 브래킷
+// 얼굴 가이드 + 4모서리 브래킷.
+// valid=false → teal 점선(맞춰주세요), valid=true → 초록 실선(규격 충족).
 @Composable
-private fun FaceGuideOverlay() {
+private fun FaceGuideOverlay(valid: Boolean) {
     val density = LocalDensity.current
+    val guideColor = if (valid) SuccessGreen else Teal.copy(alpha = 0.85f)
+    val bracketColor = if (valid) SuccessGreen else Teal
     Box(
         modifier = Modifier
             .fillMaxSize()
             .drawBehind {
-                // 중앙 점선 사각 가이드
+                // 중앙 사각 가이드 (충족 시 실선·굵게, 미충족 시 점선)
                 val guideWidth = with(density) { 290.dp.toPx() }
                 val guideHeight = with(density) { 335.dp.toPx() }
-                val stroke = with(density) { 4.dp.toPx() }
+                val stroke = with(density) { (if (valid) 6 else 4).dp.toPx() }
                 val corner = with(density) { 38.dp.toPx() }
                 val dash = with(density) { 14.dp.toPx() }
                 drawRoundRect(
-                    color = Teal.copy(alpha = 0.85f),
+                    color = guideColor,
                     topLeft = Offset((size.width - guideWidth) / 2f, (size.height - guideHeight) / 2f),
                     size = Size(guideWidth, guideHeight),
                     cornerRadius = CornerRadius(corner, corner),
-                    style = Stroke(width = stroke, pathEffect = PathEffect.dashPathEffect(floatArrayOf(dash, dash))),
+                    style = Stroke(
+                        width = stroke,
+                        pathEffect = if (valid) null else PathEffect.dashPathEffect(floatArrayOf(dash, dash)),
+                    ),
                 )
 
                 // 4모서리 브래킷
@@ -884,8 +1132,8 @@ private fun FaceGuideOverlay() {
                     Offset(size.width - margin, size.height - margin) to Pair(Offset(-len, 0f), Offset(0f, -len)),
                 )
                 edges.forEach { (origin, dirs) ->
-                    drawLine(Teal, origin, origin + dirs.first, strokeWidth = bracketStroke)
-                    drawLine(Teal, origin, origin + dirs.second, strokeWidth = bracketStroke)
+                    drawLine(bracketColor, origin, origin + dirs.first, strokeWidth = bracketStroke)
+                    drawLine(bracketColor, origin, origin + dirs.second, strokeWidth = bracketStroke)
                 }
             },
     )
@@ -952,9 +1200,15 @@ private fun NoProductStep(
             lineHeight = 46.sp,
         )
         Spacer(modifier = Modifier.height(44.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(26.dp)) {
-            GhostButton(text = "이전으로", width = 350.dp, height = 116.dp, fontSize = 36.sp, onClick = onPrev)
-            TealButton(text = "처음으로", width = 440.dp, height = 116.dp, fontSize = 36.sp, onClick = onHome)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 820.dp)
+                .padding(horizontal = 32.dp),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            GhostButton(text = "이전으로", height = 116.dp, fontSize = 36.sp, modifier = Modifier.weight(1f), onClick = onPrev)
+            TealButton(text = "처음으로", height = 116.dp, fontSize = 36.sp, modifier = Modifier.weight(1.25f), onClick = onHome)
         }
     }
 }
@@ -995,14 +1249,17 @@ private fun DoneStep(
             )
         } else {
             // QR 발급: 흰 라운드 카드에 실제 발급 payload 렌더링
-            val qrBitmap = remember(qrPayload) {
-                qrPayload?.let {
-                    QrCodeGenerator.generate(
-                        content = it,
-                        sizePx = 600,
-                        moduleColor = 0xFF0D3B39.toInt(),
-                        backgroundColor = android.graphics.Color.WHITE,
-                    )
+            // 600px 비트맵 생성은 백그라운드(Default)에서 → 완료 화면 진입 시 프레임 끊김 방지
+            val qrBitmap by produceState<android.graphics.Bitmap?>(initialValue = null, qrPayload) {
+                value = qrPayload?.let {
+                    withContext(Dispatchers.Default) {
+                        QrCodeGenerator.generate(
+                            content = it,
+                            sizePx = 600,
+                            moduleColor = 0xFF0D3B39.toInt(),
+                            backgroundColor = android.graphics.Color.WHITE,
+                        )
+                    }
                 }
             }
             Box(
@@ -1013,9 +1270,10 @@ private fun DoneStep(
                     .padding(20.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                if (qrBitmap != null) {
+                val bitmap = qrBitmap
+                if (bitmap != null) {
                     Image(
-                        bitmap = qrBitmap.asImageBitmap(),
+                        bitmap = bitmap.asImageBitmap(),
                         contentDescription = "출입 QR 코드",
                         modifier = Modifier.fillMaxSize(),
                     )
@@ -1045,6 +1303,15 @@ private fun DoneStep(
         }
 
         Spacer(modifier = Modifier.height(40.dp))
-        TealButton(text = "처음으로", width = 880.dp, height = 116.dp, fontSize = 38.sp, onClick = onHome)
+        TealButton(
+            text = "처음으로",
+            height = 116.dp,
+            fontSize = 38.sp,
+            modifier = Modifier
+                .padding(horizontal = 48.dp)
+                .fillMaxWidth()
+                .widthIn(max = 880.dp),
+            onClick = onHome,
+        )
     }
 }
