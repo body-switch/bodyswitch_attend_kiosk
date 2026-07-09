@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -66,6 +67,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -101,15 +103,25 @@ private val CameraAreaBg = Color(0xFF1E1E1E)
 
 // ── 세로/가로 배치 ──
 // 가로: [광고 0.3 | QR 0.38 | 번호 0.3] 좌우 3분할 (기존)
-// 세로: QR·번호를 위아래로 쌓고 광고는 하단 배너로 내린다
+// 세로: 콘텐츠 하나 + 하단 광고 배너. QR·번호가 둘 다 켜져 있으면 세그먼트 탭으로 전환한다
+//       (design_handoff_access_registration/Kiosk.dc.html — 세로 홈 "탭 전환형")
 private val LANDSCAPE_SCAN_SIZE = 350.dp
-// 세로에서 QR·번호를 함께 띄우면 카메라 높이가 줄어 스캔 가이드도 같이 줄여야 한다
-private val PORTRAIT_BOTH_SCAN_SIZE = 260.dp
-private const val PORTRAIT_BOTH_QR_WEIGHT = 0.36f
-private const val PORTRAIT_BOTH_PHONE_WEIGHT = 0.44f
-// QR/번호 하나만 띄울 때는 그 하나가 남은 높이를 다 쓴다
-private const val PORTRAIT_SINGLE_WEIGHT = 0.80f
-private const val PORTRAIT_AD_WEIGHT = 0.20f
+// 세로 QR 프리뷰는 정사각, 폭 상한 (디자인: width min(100%,560px), aspect 1/1)
+private val PORTRAIT_PREVIEW_MAX_WIDTH = 560.dp
+
+// 세그먼트 탭 (디자인 토큰)
+private val SegmentTrackBg = Color(0xFF12161A)
+private val SegmentTrackBorder = Color(0xFF232A30)
+private val SegmentActiveBg = Color(0xFF45B6B0)
+private val SegmentActiveText = Color(0xFF062B2A)
+private val SegmentInactiveText = Color(0xFF8A9299)
+
+// 세로 하단 광고 배너 (디자인 토큰)
+private val BannerBg = Color(0xFF12161A)
+private val BannerTagline = Color(0xFF9AA3AA)
+private val ChipBg = Color(0x1445B6B0)
+
+private enum class HomeTab { QR, PHONE }
 private val KeyBg = Color(0xE0FFFFFF)
 private val ActionKeyBg = Color(0xCC4AB3BC)
 private val DotEmpty = Color(0xFF3A3A3A)
@@ -379,26 +391,35 @@ private fun BothCheckinContent(
     onClear: () -> Unit,
 ) {
     if (isPortrait()) {
-        // 세로: QR → 번호 → 광고 배너를 위아래로
+        // 세로: 세그먼트 탭으로 QR/번호 중 하나만 크게 보여준다 (디자인 "탭 전환형")
+        var homeTab by remember { mutableStateOf(HomeTab.QR) }
         Column(modifier = modifier.padding(horizontal = 16.dp)) {
-            QrSection(
-                modifier = Modifier.fillMaxWidth().weight(PORTRAIT_BOTH_QR_WEIGHT),
-                scanSize = PORTRAIT_BOTH_SCAN_SIZE,
-                cameraPermission = cameraPermission,
-                onRequestPermission = onRequestPermission,
-                onQrDetected = onQrDetected,
+            HomeTabSegment(
+                selected = homeTab,
+                onSelect = { homeTab = it },
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(modifier = Modifier.height(16.dp))
-            PhoneSection(
-                modifier = Modifier.fillMaxWidth().weight(PORTRAIT_BOTH_PHONE_WEIGHT),
-                phoneNumber = phoneNumber,
-                isLoading = isPhoneLoading,
-                onDigit = onDigit,
-                onDelete = onDelete,
-                onClear = onClear,
-            )
+            when (homeTab) {
+                HomeTab.QR -> QrSection(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    scanSize = LANDSCAPE_SCAN_SIZE,
+                    cameraPermission = cameraPermission,
+                    onRequestPermission = onRequestPermission,
+                    onQrDetected = onQrDetected,
+                    squarePreview = true,
+                )
+                HomeTab.PHONE -> PhoneSection(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    phoneNumber = phoneNumber,
+                    isLoading = isPhoneLoading,
+                    onDigit = onDigit,
+                    onDelete = onDelete,
+                    onClear = onClear,
+                )
+            }
             Spacer(modifier = Modifier.height(16.dp))
-            AdBanner(modifier = Modifier.fillMaxWidth().weight(PORTRAIT_AD_WEIGHT))
+            AdBanner(modifier = Modifier.fillMaxWidth())
         }
         return
     }
@@ -434,6 +455,52 @@ private fun BothCheckinContent(
     }
 }
 
+// ─── 세로 홈 세그먼트 탭 [QR 체크인 | 번호 체크인] ───
+// 디자인: 트랙 bg #12161a / border #232a30 / radius 16 / padding 6, 활성 탭 teal radius 11
+@Composable
+private fun HomeTabSegment(
+    selected: HomeTab,
+    onSelect: (HomeTab) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(SegmentTrackBg)
+            .border(1.dp, SegmentTrackBorder, RoundedCornerShape(16.dp))
+            .padding(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        HomeTabButton("QR 체크인", selected == HomeTab.QR, Modifier.weight(1f)) { onSelect(HomeTab.QR) }
+        HomeTabButton("번호 체크인", selected == HomeTab.PHONE, Modifier.weight(1f)) { onSelect(HomeTab.PHONE) }
+    }
+}
+
+@Composable
+private fun HomeTabButton(
+    text: String,
+    active: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(11.dp))
+            .background(if (active) SegmentActiveBg else Color.Transparent)
+            .clickable { onClick() }
+            .padding(vertical = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = if (active) SegmentActiveText else SegmentInactiveText,
+            maxLines = 1,
+        )
+    }
+}
+
 // ─── 공통 섹션: QR 헤더 + 카메라 ───
 @Composable
 private fun QrSection(
@@ -442,6 +509,8 @@ private fun QrSection(
     cameraPermission: Boolean,
     onRequestPermission: () -> Unit,
     onQrDetected: (String) -> Unit,
+    // 세로 홈은 정사각 프리뷰 + 폭 상한 (디자인). 가로는 기존대로 남은 높이의 90%를 채운다.
+    squarePreview: Boolean = false,
 ) {
     Column(
         modifier = modifier,
@@ -468,10 +537,18 @@ private fun QrSection(
         }
 
         // 카메라 (rounded-32, #404040)
-        Box(
-            modifier = Modifier
+        val previewModifier = if (squarePreview) {
+            Modifier
+                .fillMaxWidth()
+                .widthIn(max = PORTRAIT_PREVIEW_MAX_WIDTH)
+                .aspectRatio(1f, matchHeightConstraintsFirst = true)
+        } else {
+            Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.9f)
+        }
+        Box(
+            modifier = previewModifier
                 .clip(RoundedCornerShape(32.dp))
                 .background(Color(0xFF404040)),
             contentAlignment = Alignment.Center,
@@ -602,76 +679,89 @@ private fun AdColumn(modifier: Modifier = Modifier) {
     }
 }
 
-// ─── 세로 전용 광고 배너 (하단) ───
-// AdColumn을 눕힌 형태. 왼쪽에 브랜드 블록, 오른쪽에 아이템 카드 3개.
+// ─── 세로 전용 광고 배너 (하단 고정) ───
+// 디자인: 1행 브랜드 + 태그라인, 2행 기능 칩 3개(pill)
 @Composable
 private fun AdBanner(modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    Column(
+        modifier = modifier
+            .background(BannerBg)
+            .padding(horizontal = 26.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // 브랜드 블록: 그라데이션 바 + 로고 + 문구
         Row(
-            modifier = Modifier.weight(1.2f).fillMaxHeight(),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .width(8.dp)
-                    .fillMaxHeight(0.8f)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(
-                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                            colors = listOf(Color.White, TealPrimary),
-                        )
-                    ),
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = "올인원 스포츠 시설 통합 운영 플랫폼",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
+            // 좌측 3dp teal 보더 + 태그라인 + 브랜드명
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .width(3.dp)
+                        .height(44.dp)
+                        .background(TealPrimary),
                 )
-                Spacer(modifier = Modifier.height(6.dp))
-                Image(
-                    painter = painterResource(R.drawable.logo_bodyswitch_kr_teal),
-                    contentDescription = "바디스위치",
-                    modifier = Modifier.height(36.dp),
-                    contentScale = ContentScale.FillHeight,
-                )
-                Text(
-                    text = "회원관리\n이제 더 간편하게!",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color(0xFFFEEB1C),
-                    lineHeight = 30.sp,
-                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "올인원 스포츠 시설 통합 운영 플랫폼",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = BannerTagline,
+                    )
+                    Text(
+                        text = "바디스위치",
+                        fontSize = 27.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = TealPrimary,
+                    )
+                }
+            }
+            Row {
+                Text("회원관리 ", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFFF4F6F5))
+                Text("이제 더 간편하게!", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFFF4CE00))
             }
         }
 
-        Column(
-            modifier = Modifier.weight(1f).fillMaxHeight(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            ItemCard(text = "회원관리 프로그램", modifier = Modifier.weight(1f), compact = true)
-            ItemCard(text = "IoT 시설제어", modifier = Modifier.weight(1f), compact = true)
-            ItemCard(text = "무인 입출입 관리", modifier = Modifier.weight(1f), compact = true)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            AdChip(text = "회원관리 프로그램", modifier = Modifier.weight(1f))
+            AdChip(text = "IoT 시설제어", modifier = Modifier.weight(1f))
+            AdChip(text = "무인 입출입 관리", modifier = Modifier.weight(1f))
         }
     }
 }
 
-// 광고 아이템 3개의 텍스트
-// compact = 세로 하단 배너용 (높이가 짧아 아이콘·글자를 줄인다)
+// 배너의 기능 칩 (pill). AdColumn의 ItemCard와 달리 가로로 나란히 놓인다.
 @Composable
-fun ItemCard(text: String, modifier: Modifier = Modifier, compact: Boolean = false) {
-    val iconBoxSize = if (compact) 56.dp else 80.dp
-    val iconSize = if (compact) 34.dp else 48.dp
-    val textSize = if (compact) 18.sp else 26.sp
-    val textLineHeight = if (compact) 24.sp else 40.sp
+private fun AdChip(text: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(ChipBg)
+            .border(1.dp, SegmentTrackBorder, RoundedCornerShape(999.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.ic_drawer_lightning),
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = text,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
 
+// 광고 아이템 3개의 텍스트
+@Composable
+fun ItemCard(text: String, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -684,13 +774,13 @@ fun ItemCard(text: String, modifier: Modifier = Modifier, compact: Boolean = fal
 
         // 2. 아이콘 영역 (고정 크기)
         Box(
-            modifier = Modifier.size(iconBoxSize),
+            modifier = Modifier.size(80.dp),
             contentAlignment = Alignment.Center
         ) {
             Image(
                 painter = painterResource(id = R.drawable.ic_drawer_lightning),
                 contentDescription = null,
-                modifier = Modifier.size(iconSize)
+                modifier = Modifier.size(48.dp)
             )
         }
 
@@ -701,10 +791,10 @@ fun ItemCard(text: String, modifier: Modifier = Modifier, compact: Boolean = fal
         Text(
             text = text,
             style = TextStyle(
-                fontSize = textSize, // 글자가 길면 조금 줄이는 것도 방법입니다.
+                fontSize = 26.sp, // 글자가 길면 조금 줄이는 것도 방법입니다.
                 fontWeight = FontWeight.Black,
                 color = Color.White,
-                lineHeight = textLineHeight
+                lineHeight = 40.sp
             )
         )
     }
@@ -718,16 +808,18 @@ private fun QrOnlyContent(
     onQrDetected: (String) -> Unit,
 ) {
     if (isPortrait()) {
+        // 단일 모드는 세그먼트 탭 없이 그 하나만. 전환은 상단바 버튼이 담당한다.
         Column(modifier = modifier.padding(horizontal = 16.dp)) {
             QrSection(
-                modifier = Modifier.fillMaxWidth().weight(PORTRAIT_SINGLE_WEIGHT),
+                modifier = Modifier.fillMaxWidth().weight(1f),
                 scanSize = LANDSCAPE_SCAN_SIZE,
                 cameraPermission = cameraPermission,
                 onRequestPermission = onRequestPermission,
                 onQrDetected = onQrDetected,
+                squarePreview = true,
             )
             Spacer(modifier = Modifier.height(16.dp))
-            AdBanner(modifier = Modifier.fillMaxWidth().weight(PORTRAIT_AD_WEIGHT))
+            AdBanner(modifier = Modifier.fillMaxWidth())
         }
         return
     }
@@ -760,9 +852,10 @@ private fun PhoneOnlyContent(
     onClear: () -> Unit,
 ) {
     if (isPortrait()) {
+        // 단일 모드는 세그먼트 탭 없이 그 하나만. 전환은 상단바 버튼이 담당한다.
         Column(modifier = modifier.padding(horizontal = 16.dp)) {
             PhoneSection(
-                modifier = Modifier.fillMaxWidth().weight(PORTRAIT_SINGLE_WEIGHT),
+                modifier = Modifier.fillMaxWidth().weight(1f),
                 phoneNumber = phoneNumber,
                 isLoading = isLoading,
                 onDigit = onDigit,
@@ -770,7 +863,7 @@ private fun PhoneOnlyContent(
                 onClear = onClear,
             )
             Spacer(modifier = Modifier.height(16.dp))
-            AdBanner(modifier = Modifier.fillMaxWidth().weight(PORTRAIT_AD_WEIGHT))
+            AdBanner(modifier = Modifier.fillMaxWidth())
         }
         return
     }
@@ -1005,13 +1098,7 @@ private fun TopBar(
     val calendar = Calendar.getInstance().apply { time = now }
     val dayOfWeek = arrayOf("", "일", "월", "화", "수", "목", "금", "토")[calendar.get(Calendar.DAY_OF_WEEK)]
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 48.dp, vertical = 24.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    val dateTimeBlock: @Composable () -> Unit = {
         Column(
             modifier = Modifier.clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -1025,44 +1112,105 @@ private fun TopBar(
             }
             Text(timeFormat.format(now), fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = Color.White, letterSpacing = (-0.3).sp)
         }
+    }
+
+    // 세로에서는 출입등록이 가운데서 남은 폭을 채우므로 모서리를 pill 대신 14dp로 (디자인)
+    val switchButton: @Composable (Modifier) -> Unit = { m ->
+        Box(
+            modifier = m
+                .border(2.dp, Color.White, RoundedCornerShape(999.dp))
+                .clickable { onSwitch() }
+                .padding(horizontal = 28.dp, vertical = 10.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(switchText, fontSize = 20.sp, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 1)
+        }
+    }
+    val registerButton: @Composable (Modifier, RoundedCornerShape) -> Unit = { m, shape ->
+        // 출입등록 (teal 채움) — 안면등록/QR 발급 플로우 진입
+        Row(
+            modifier = m
+                .clip(shape)
+                .background(Color(0xFF45B6B0))
+                .clickable { onAccessRegistration() }
+                .padding(horizontal = 24.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Icon(Icons.Default.Face, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF062B2A))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("출입등록", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF062B2A), maxLines = 1)
+        }
+    }
+    val staffCallButton: @Composable (Modifier) -> Unit = { m ->
+        Box(
+            modifier = m
+                .border(2.dp, Color.White, RoundedCornerShape(999.dp))
+                .clickable { onStaffCall() }
+                .padding(horizontal = 28.dp, vertical = 10.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("직원호출", fontSize = 20.sp, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 1)
+        }
+    }
+
+    if (isPortrait()) {
+        // 세로: 1행 날짜·시간 + 지점명, 2행 버튼 행 [전환][출입등록(남은 폭)][직원호출]
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                dateTimeBlock()
+                Text(
+                    centerName,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (switchText.isNotEmpty()) {
+                    switchButton(Modifier)
+                }
+                registerButton(Modifier.weight(1f), RoundedCornerShape(14.dp))
+                staffCallButton(Modifier)
+            }
+        }
+        return
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 48.dp, vertical = 24.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        dateTimeBlock()
         Text(centerName, fontSize = 28.sp, fontWeight = FontWeight.Medium, color = Color.White)
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             if (switchText.isNotEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .border(2.dp, Color.White, RoundedCornerShape(999.dp))
-                        .clickable { onSwitch() }
-                        .padding(horizontal = 28.dp, vertical = 10.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(switchText, fontSize = 20.sp, fontWeight = FontWeight.Medium, color = Color.White)
-                }
+                switchButton(Modifier)
             }
-            // 출입등록 (teal 채움 pill) — 안면등록/QR 발급 플로우 진입
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(Color(0xFF45B6B0))
-                    .clickable { onAccessRegistration() }
-                    .padding(horizontal = 24.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Default.Face, contentDescription = null, modifier = Modifier.size(24.dp), tint = Color(0xFF062B2A))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("출입등록", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF062B2A))
-            }
-            Box(
-                modifier = Modifier
-                    .border(2.dp, Color.White, RoundedCornerShape(999.dp))
-                    .clickable { onStaffCall() }
-                    .padding(horizontal = 28.dp, vertical = 10.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("직원호출", fontSize = 20.sp, fontWeight = FontWeight.Medium, color = Color.White)
-            }
+            registerButton(Modifier, RoundedCornerShape(999.dp))
+            staffCallButton(Modifier)
         }
     }
 }
