@@ -1,5 +1,6 @@
 package com.bodyswitch.checkin.di
 
+import com.bodyswitch.checkin.BuildConfig
 import com.bodyswitch.checkin.data.api.KioskApi
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -31,9 +32,16 @@ object AppModule {
     fun provideOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
+        // 안면 이미지(base64 대용량) 업로드 대비: 기본 10s로는 부족할 수 있음
+        .writeTimeout(30, TimeUnit.SECONDS)
         .addInterceptor(
             HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BODY
+                // 릴리스에서는 로깅 비활성화 (대용량 base64 바디 문자열화/로그 유출/GC 부담 방지)
+                level = if (BuildConfig.DEBUG) {
+                    HttpLoggingInterceptor.Level.BODY
+                } else {
+                    HttpLoggingInterceptor.Level.NONE
+                }
             }
         )
         .build()

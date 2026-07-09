@@ -8,6 +8,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.bodyswitch.checkin.data.session.CheckinSettingsManager
 import com.bodyswitch.checkin.data.session.SessionManager
+import com.bodyswitch.checkin.ui.access.AccessRegistrationScreen
 import com.bodyswitch.checkin.ui.checkin.CheckinCompleteScreen
 import com.bodyswitch.checkin.ui.checkin.CheckinScreen
 import com.bodyswitch.checkin.ui.checkin.EmployeeAttendTypeScreen
@@ -31,6 +32,7 @@ object Routes {
     const val EMPLOYEE_CHECKIN_COMPLETE = "employee_checkin_complete/{name}/{time}/{count}/{exitCount}/{attendType}"
     const val HISTORY = "history"
     const val SETTINGS = "settings"
+    const val ACCESS_REGISTRATION = "access_registration"
 
     fun checkinQr(qrData: String): String {
         val encoded = URLEncoder.encode(qrData, "UTF-8")
@@ -98,6 +100,11 @@ fun NavGraph(sessionManager: SessionManager, checkinSettingsManager: CheckinSett
                         popUpTo(Routes.HOME) { inclusive = false }
                     }
                 },
+                onAccessRegistration = {
+                    navController.navigate(Routes.ACCESS_REGISTRATION) {
+                        launchSingleTop = true
+                    }
+                },
                 onHistoryClick = { navController.navigate(Routes.HISTORY) },
                 onSettingsClick = { navController.navigate(Routes.SETTINGS) },
                 onLogout = {
@@ -146,6 +153,14 @@ fun NavGraph(sessionManager: SessionManager, checkinSettingsManager: CheckinSett
                     }
                 },
                 centerName = sessionManager.businessName ?: sessionManager.branchName ?: "",
+            )
+        }
+
+        composable(Routes.ACCESS_REGISTRATION) {
+            AccessRegistrationScreen(
+                sessionManager = sessionManager,
+                checkinSettingsManager = checkinSettingsManager,
+                onExit = { navController.popBackStack(Routes.HOME, inclusive = false) },
             )
         }
 
