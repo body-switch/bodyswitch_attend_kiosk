@@ -109,19 +109,21 @@ private val LANDSCAPE_SCAN_SIZE = 350.dp
 // 세로 QR 프리뷰는 정사각, 폭 상한 (디자인: width min(100%,560px), aspect 1/1)
 private val PORTRAIT_PREVIEW_MAX_WIDTH = 560.dp
 
-// 세그먼트 탭 (디자인 토큰)
+// 디자인 토큰
+private val HeaderTitleColor = Color(0xFFF4F6F5)
+private val HeaderSubtitleColor = Color(0xFF8A9299)
+
+// 세그먼트 탭
 private val SegmentTrackBg = Color(0xFF12161A)
 private val SegmentTrackBorder = Color(0xFF232A30)
 private val SegmentActiveBg = Color(0xFF45B6B0)
 private val SegmentActiveText = Color(0xFF062B2A)
-private val SegmentInactiveText = Color(0xFF8A9299)
 
 // 세로 하단 광고 배너 (디자인 토큰)
 private val BannerBg = Color(0xFF12161A)
 private val BannerTagline = Color(0xFF9AA3AA)
 private val ChipBg = Color(0x1445B6B0)
 
-private enum class HomeTab { QR, PHONE }
 private val KeyBg = Color(0xE0FFFFFF)
 private val ActionKeyBg = Color(0xCC4AB3BC)
 private val DotEmpty = Color(0xFF3A3A3A)
@@ -131,6 +133,9 @@ private val Coral = Color(0xFFEE735A)
 private val SidebarBg = Color(0x33000000)
 
 private enum class CheckinMode { QR, PHONE, BOTH }
+
+// 세로 홈 세그먼트 탭 상태 (QR·번호가 둘 다 켜져 있을 때만 사용)
+private enum class HomeTab { QR, PHONE }
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -407,7 +412,7 @@ private fun BothCheckinContent(
                     cameraPermission = cameraPermission,
                     onRequestPermission = onRequestPermission,
                     onQrDetected = onQrDetected,
-                    squarePreview = true,
+                    portrait = true,
                 )
                 HomeTab.PHONE -> PhoneSection(
                     modifier = Modifier.fillMaxWidth().weight(1f),
@@ -416,6 +421,7 @@ private fun BothCheckinContent(
                     onDigit = onDigit,
                     onDelete = onDelete,
                     onClear = onClear,
+                    portrait = true,
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -495,8 +501,30 @@ private fun HomeTabButton(
             text,
             fontSize = 22.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = if (active) SegmentActiveText else SegmentInactiveText,
+            color = if (active) SegmentActiveText else HeaderSubtitleColor,
             maxLines = 1,
+        )
+    }
+}
+
+// ─── 세로 홈 섹션 헤더 (가운데 정렬 텍스트) ───
+@Composable
+private fun PortraitSectionHeader(title: String, subtitle: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = title,
+            fontSize = 27.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = HeaderTitleColor,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = subtitle,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Medium,
+            color = HeaderSubtitleColor,
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -509,8 +537,8 @@ private fun QrSection(
     cameraPermission: Boolean,
     onRequestPermission: () -> Unit,
     onQrDetected: (String) -> Unit,
-    // 세로 홈은 정사각 프리뷰 + 폭 상한 (디자인). 가로는 기존대로 남은 높이의 90%를 채운다.
-    squarePreview: Boolean = false,
+    // 세로 홈은 가운데 정렬 텍스트 헤더 + 정사각 프리뷰(폭 상한). 가로는 기존 아이콘 헤더 + 높이 90% 프리뷰.
+    portrait: Boolean = false,
 ) {
     Column(
         modifier = modifier,
@@ -518,26 +546,33 @@ private fun QrSection(
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         // QR 헤더
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Image(
-                painter = painterResource(R.drawable.ic_qr_check),
-                contentDescription = null,
-                modifier = Modifier.size(100.dp),
+        if (portrait) {
+            PortraitSectionHeader(
+                title = "QR 코드를 스캔해 주세요",
+                subtitle = "앱의 QR코드를 사각형 안에 비춰 주세요",
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text("QR 체크인", fontSize = 35.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("앱의 QR코드를 스캔해 주세요", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = GrayText)
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.ic_qr_check),
+                    contentDescription = null,
+                    modifier = Modifier.size(100.dp),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text("QR 체크인", fontSize = 35.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("앱의 QR코드를 스캔해 주세요", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = GrayText)
+                }
             }
         }
 
         // 카메라 (rounded-32, #404040)
-        val previewModifier = if (squarePreview) {
+        val previewModifier = if (portrait) {
             Modifier
                 .fillMaxWidth()
                 .widthIn(max = PORTRAIT_PREVIEW_MAX_WIDTH)
@@ -575,6 +610,8 @@ private fun PhoneSection(
     onDigit: (String) -> Unit,
     onDelete: () -> Unit,
     onClear: () -> Unit,
+    // 세로 홈은 가운데 정렬 텍스트 헤더 (디자인). 가로는 기존 아이콘 헤더.
+    portrait: Boolean = false,
 ) {
     Column(
         modifier = modifier,
@@ -582,21 +619,29 @@ private fun PhoneSection(
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         // 번호 헤더
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Image(
-                painter = painterResource(R.drawable.ic_phone_check),
-                contentDescription = null,
-                modifier = Modifier.size(100.dp),
+        if (portrait) {
+            // 8자리를 채우면 MainCheckinScreen이 자동으로 login()을 호출한다
+            PortraitSectionHeader(
+                title = "전화번호 뒤 8자리를 입력해 주세요",
+                subtitle = "번호 입력 후 자동으로 체크인됩니다",
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text("번호 체크인", fontSize = 35.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("전화번호 뒤 8자리를 입력해 주세요", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = GrayText)
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.ic_phone_check),
+                    contentDescription = null,
+                    modifier = Modifier.size(100.dp),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text("번호 체크인", fontSize = 35.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("전화번호 뒤 8자리를 입력해 주세요", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = GrayText)
+                }
             }
         }
 
@@ -816,7 +861,7 @@ private fun QrOnlyContent(
                 cameraPermission = cameraPermission,
                 onRequestPermission = onRequestPermission,
                 onQrDetected = onQrDetected,
-                squarePreview = true,
+                portrait = true,
             )
             Spacer(modifier = Modifier.height(16.dp))
             AdBanner(modifier = Modifier.fillMaxWidth())
@@ -861,6 +906,7 @@ private fun PhoneOnlyContent(
                 onDigit = onDigit,
                 onDelete = onDelete,
                 onClear = onClear,
+                portrait = true,
             )
             Spacer(modifier = Modifier.height(16.dp))
             AdBanner(modifier = Modifier.fillMaxWidth())
