@@ -1,12 +1,7 @@
 package com.bodyswitch.checkin.ui.access
 
 import android.Manifest
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
-import android.content.pm.ActivityInfo
 import android.util.Log
-import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -85,7 +80,6 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
@@ -156,16 +150,6 @@ private val SuccessGreen = Color(0xFF22C55E)
 
 private const val MASKED_PHONE = "010-XXXX-XXXX"
 
-// Compose Context에서 호스트 Activity 탐색 (orientation 제어용)
-private fun Context.findActivity(): Activity? {
-    var ctx: Context? = this
-    while (ctx is ContextWrapper) {
-        if (ctx is Activity) return ctx
-        ctx = ctx.baseContext
-    }
-    return null
-}
-
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun AccessRegistrationScreen(
@@ -179,34 +163,6 @@ fun AccessRegistrationScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showStaffCallDialog by remember { mutableStateOf(false) }
     var snackbarIsSuccess by remember { mutableStateOf(false) }
-
-    // 출입등록 플로우는 세로 화면으로 (나가면 원래 가로로 복원)
-    // 첫 컴포지션에서 즉시 세로 요청 → 첫 프레임부터 세로 (가로 깜빡임 방지).
-    // configChanges(orientation) + rotationAnimation=JUMPCUT → 회전 애니메이션 없이 즉시 세로로 전환.
-    val context = LocalContext.current
-    val activity = remember(context) { context.findActivity() }
-    val previousOrientation = remember {
-        // 회전 애니메이션 제거 (점프컷 = 즉시 전환)
-        activity?.window?.let { w ->
-            w.attributes = w.attributes.apply {
-                rotationAnimation = WindowManager.LayoutParams.ROTATION_ANIMATION_JUMPCUT
-            }
-        }
-        activity?.requestedOrientation.also {
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
-    }
-    DisposableEffect(Unit) {
-        onDispose {
-            activity?.requestedOrientation = previousOrientation ?: ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-            // 회전 애니메이션 기본값으로 복원
-            activity?.window?.let { w ->
-                w.attributes = w.attributes.apply {
-                    rotationAnimation = WindowManager.LayoutParams.ROTATION_ANIMATION_ROTATE
-                }
-            }
-        }
-    }
 
     val staffCallState by staffCallViewModel.state.collectAsState()
 
