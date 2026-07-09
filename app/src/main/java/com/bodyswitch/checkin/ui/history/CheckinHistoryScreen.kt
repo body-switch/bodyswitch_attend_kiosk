@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.bodyswitch.checkin.R
+import com.bodyswitch.checkin.ui.common.isPortrait
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -117,100 +118,72 @@ fun CheckinHistoryScreen(
             ) { focusManager.clearFocus() },
     ) {
         // 상단 바
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // 뒤로가기
-            Row(
+        if (isPortrait()) {
+            // 세로: 뒤로가기+날짜 1행, 검색바 2행 (전체 폭)
+            Column(
                 modifier = Modifier
-                    .clickable { onBack() }
-                    .padding(end = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
             ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "뒤로가기",
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp),
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "뒤로가기",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.White,
-                )
-            }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TopBarBackButton(onBack = onBack)
 
-            // 날짜 드롭다운 (가운데 정렬)
-            Spacer(modifier = Modifier.weight(1f))
-            Row(
-                modifier = Modifier
-                    .clickable { viewModel.toggleDatePicker() }
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = uiState.selectedDate.format(dateFormatter),
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Icon(
-                    Icons.Default.ArrowDropDown,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-            Spacer(modifier = Modifier.weight(0.5f))
-
-            // 검색바 (흰색 테두리, 배경 투명)
-            TextField(
-                value = uiState.searchQuery,
-                onValueChange = { viewModel.onSearchQueryChange(it) },
-                modifier = Modifier
-                    .width(360.dp)
-                    .height(56.dp)
-                    .border(2.dp, Color.White, RoundedCornerShape(8.dp)),
-                placeholder = {
-                    Text("이름 또는 전화번호 검색", color = GrayText, fontSize = 14.sp)
-                },
-                trailingIcon = {
-                    Image(
-                        painter = painterResource(R.drawable.ic_search),
-                        contentDescription = "검색",
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clickable {
-                                focusManager.clearFocus()
-                                viewModel.search()
-                            },
+                    // 날짜 드롭다운 (가운데 정렬)
+                    Spacer(modifier = Modifier.weight(1f))
+                    TopBarDateSelector(
+                        dateText = uiState.selectedDate.format(dateFormatter),
+                        onClick = { viewModel.toggleDatePicker() },
                     )
-                },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 검색바 (흰색 테두리, 배경 투명)
+                TopBarSearchField(
+                    query = uiState.searchQuery,
+                    onQueryChange = { viewModel.onSearchQueryChange(it) },
                     onSearch = {
                         focusManager.clearFocus()
                         viewModel.search()
                     },
-                ),
-                shape = RoundedCornerShape(8.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    cursorColor = TealPrimary,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                ),
-            )
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TopBarBackButton(onBack = onBack)
+
+                // 날짜 드롭다운 (가운데 정렬)
+                Spacer(modifier = Modifier.weight(1f))
+                TopBarDateSelector(
+                    dateText = uiState.selectedDate.format(dateFormatter),
+                    onClick = { viewModel.toggleDatePicker() },
+                )
+                Spacer(modifier = Modifier.weight(0.5f))
+
+                // 검색바 (흰색 테두리, 배경 투명)
+                TopBarSearchField(
+                    query = uiState.searchQuery,
+                    onQueryChange = { viewModel.onSearchQueryChange(it) },
+                    onSearch = {
+                        focusManager.clearFocus()
+                        viewModel.search()
+                    },
+                    modifier = Modifier
+                        .width(360.dp)
+                        .height(56.dp),
+                )
+            }
         }
 
         // 리스트
@@ -284,6 +257,96 @@ fun CheckinHistoryScreen(
             }
         }
     }
+}
+
+@Composable
+private fun TopBarBackButton(onBack: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .clickable { onBack() }
+            .padding(end = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = "뒤로가기",
+            tint = Color.White,
+            modifier = Modifier.size(24.dp),
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = "뒤로가기",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.White,
+        )
+    }
+}
+
+@Composable
+private fun TopBarDateSelector(dateText: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = dateText,
+            fontSize = 30.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White,
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Icon(
+            Icons.Default.ArrowDropDown,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(24.dp),
+        )
+    }
+}
+
+@Composable
+private fun TopBarSearchField(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    TextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = modifier
+            .border(2.dp, Color.White, RoundedCornerShape(8.dp)),
+        placeholder = {
+            Text("이름 또는 전화번호 검색", color = GrayText, fontSize = 14.sp)
+        },
+        trailingIcon = {
+            Image(
+                painter = painterResource(R.drawable.ic_search),
+                contentDescription = "검색",
+                modifier = Modifier
+                    .size(24.dp)
+                    .clickable { onSearch() },
+            )
+        },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(
+            onSearch = { onSearch() },
+        ),
+        shape = RoundedCornerShape(8.dp),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = Color.Transparent,
+            unfocusedContainerColor = Color.Transparent,
+            focusedTextColor = Color.White,
+            unfocusedTextColor = Color.White,
+            cursorColor = TealPrimary,
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+        ),
+    )
 }
 
 private val EmployeeBadgeBg = Color(0xFF2A5C60)

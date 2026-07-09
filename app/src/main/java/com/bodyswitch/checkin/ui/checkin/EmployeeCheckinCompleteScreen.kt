@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bodyswitch.checkin.R
+import com.bodyswitch.checkin.ui.common.isPortrait
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.text.SimpleDateFormat
@@ -70,6 +71,7 @@ fun EmployeeCheckinCompleteScreen(
         "EXIT" -> "퇴근 완료"
         else -> "출근 완료"
     }
+    val portrait = isPortrait()
 
     var countdown by remember { mutableIntStateOf(5) }
     var visible by remember { mutableStateOf(false) }
@@ -213,7 +215,7 @@ fun EmployeeCheckinCompleteScreen(
             // 직원 정보 카드
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.5f)
+                    .fillMaxWidth(if (portrait) 0.8f else 0.5f)
                     .clip(RoundedCornerShape(20.dp))
                     .background(InfoCardBg)
                     .padding(horizontal = 40.dp, vertical = 28.dp),

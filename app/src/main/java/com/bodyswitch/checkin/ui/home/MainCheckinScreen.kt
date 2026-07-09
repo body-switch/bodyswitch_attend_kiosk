@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -74,6 +75,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.bodyswitch.checkin.R
 import com.bodyswitch.checkin.data.session.CheckinSettingsManager
 import com.bodyswitch.checkin.data.session.SessionManager
+import com.bodyswitch.checkin.ui.common.isPortrait
 import com.bodyswitch.checkin.ui.phone.PhoneLoginViewModel
 import com.bodyswitch.checkin.ui.scanner.CameraPreview
 import com.bodyswitch.checkin.ui.scanner.ScannerViewModel
@@ -96,6 +98,18 @@ private val GreenCard = Color(0x5255C982)
 private val PanelBg = Color(0x14FFFFFF)
 private val GrayText = Color(0xFFBFBFBF)
 private val CameraAreaBg = Color(0xFF1E1E1E)
+
+// ── 세로/가로 배치 ──
+// 가로: [광고 0.3 | QR 0.38 | 번호 0.3] 좌우 3분할 (기존)
+// 세로: QR·번호를 위아래로 쌓고 광고는 하단 배너로 내린다
+private val LANDSCAPE_SCAN_SIZE = 350.dp
+// 세로에서 QR·번호를 함께 띄우면 카메라 높이가 줄어 스캔 가이드도 같이 줄여야 한다
+private val PORTRAIT_BOTH_SCAN_SIZE = 260.dp
+private const val PORTRAIT_BOTH_QR_WEIGHT = 0.36f
+private const val PORTRAIT_BOTH_PHONE_WEIGHT = 0.44f
+// QR/번호 하나만 띄울 때는 그 하나가 남은 높이를 다 쓴다
+private const val PORTRAIT_SINGLE_WEIGHT = 0.80f
+private const val PORTRAIT_AD_WEIGHT = 0.20f
 private val KeyBg = Color(0xE0FFFFFF)
 private val ActionKeyBg = Color(0xCC4AB3BC)
 private val DotEmpty = Color(0xFF3A3A3A)
@@ -364,6 +378,31 @@ private fun BothCheckinContent(
     onDelete: () -> Unit,
     onClear: () -> Unit,
 ) {
+    if (isPortrait()) {
+        // 세로: QR → 번호 → 광고 배너를 위아래로
+        Column(modifier = modifier.padding(horizontal = 16.dp)) {
+            QrSection(
+                modifier = Modifier.fillMaxWidth().weight(PORTRAIT_BOTH_QR_WEIGHT),
+                scanSize = PORTRAIT_BOTH_SCAN_SIZE,
+                cameraPermission = cameraPermission,
+                onRequestPermission = onRequestPermission,
+                onQrDetected = onQrDetected,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            PhoneSection(
+                modifier = Modifier.fillMaxWidth().weight(PORTRAIT_BOTH_PHONE_WEIGHT),
+                phoneNumber = phoneNumber,
+                isLoading = isPhoneLoading,
+                onDigit = onDigit,
+                onDelete = onDelete,
+                onClear = onClear,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            AdBanner(modifier = Modifier.fillMaxWidth().weight(PORTRAIT_AD_WEIGHT))
+        }
+        return
+    }
+
     Row(
         modifier = modifier.padding(horizontal = 16.dp),
     ) {
@@ -373,99 +412,133 @@ private fun BothCheckinContent(
         Spacer(modifier = Modifier.width(16.dp))
 
         // ── QR 영역 (680/1920 비율, 가장 넓음) ──
-        Column(
-            modifier = Modifier
-                .weight(0.38f)
-                .fillMaxHeight(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-        ) {
-            // QR 헤더
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_qr_check),
-                    contentDescription = null,
-                    modifier = Modifier.size(100.dp),
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text("QR 체크인", fontSize = 35.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("앱의 QR코드를 스캔해 주세요", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = GrayText)
-                }
-            }
-
-            // 카메라 (rounded-32, #404040)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.9f)
-                    .clip(RoundedCornerShape(32.dp))
-                    .background(Color(0xFF404040)),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (cameraPermission) {
-                    CameraPreview(
-                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(32.dp)),
-                        onQrDetected = onQrDetected,
-                    )
-                } else {
-                    CameraPermissionPlaceholder(onRequestPermission)
-                }
-                QrScanOverlay(scanSize = 350.dp)
-            }
-        }
+        QrSection(
+            modifier = Modifier.weight(0.38f).fillMaxHeight(),
+            scanSize = LANDSCAPE_SCAN_SIZE,
+            cameraPermission = cameraPermission,
+            onRequestPermission = onRequestPermission,
+            onQrDetected = onQrDetected,
+        )
 
         Spacer(modifier = Modifier.width(16.dp))
 
         // ── 번호 영역 (568/1920 비율) ──
+        PhoneSection(
+            modifier = Modifier.weight(0.3f).fillMaxHeight(),
+            phoneNumber = phoneNumber,
+            isLoading = isPhoneLoading,
+            onDigit = onDigit,
+            onDelete = onDelete,
+            onClear = onClear,
+        )
+    }
+}
+
+// ─── 공통 섹션: QR 헤더 + 카메라 ───
+@Composable
+private fun QrSection(
+    modifier: Modifier,
+    scanSize: Dp,
+    cameraPermission: Boolean,
+    onRequestPermission: () -> Unit,
+    onQrDetected: (String) -> Unit,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        // QR 헤더
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Image(
+                painter = painterResource(R.drawable.ic_qr_check),
+                contentDescription = null,
+                modifier = Modifier.size(100.dp),
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text("QR 체크인", fontSize = 35.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("앱의 QR코드를 스캔해 주세요", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = GrayText)
+            }
+        }
+
+        // 카메라 (rounded-32, #404040)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.9f)
+                .clip(RoundedCornerShape(32.dp))
+                .background(Color(0xFF404040)),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (cameraPermission) {
+                CameraPreview(
+                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(32.dp)),
+                    onQrDetected = onQrDetected,
+                )
+            } else {
+                CameraPermissionPlaceholder(onRequestPermission)
+            }
+            QrScanOverlay(scanSize = scanSize)
+        }
+    }
+}
+
+// ─── 공통 섹션: 번호 헤더 + 키패드 ───
+@Composable
+private fun PhoneSection(
+    modifier: Modifier,
+    phoneNumber: String,
+    isLoading: Boolean,
+    onDigit: (String) -> Unit,
+    onDelete: () -> Unit,
+    onClear: () -> Unit,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        // 번호 헤더
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Image(
+                painter = painterResource(R.drawable.ic_phone_check),
+                contentDescription = null,
+                modifier = Modifier.size(100.dp),
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text("번호 체크인", fontSize = 35.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("전화번호 뒤 8자리를 입력해 주세요", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = GrayText)
+            }
+        }
+
+        // 입력바 + 키패드
         Column(
             modifier = Modifier
-                .weight(0.3f)
-                .fillMaxHeight(),
+                .fillMaxWidth()
+                .weight(1f),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            // 번호 헤더
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_phone_check),
-                    contentDescription = null,
-                    modifier = Modifier.size(100.dp),
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text("번호 체크인", fontSize = 35.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("전화번호 뒤 8자리를 입력해 주세요", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = GrayText)
-                }
-            }
-
-            // 입력바 + 키패드
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                PhoneKeypadContent(
-                    phoneNumber = phoneNumber,
-                    isLoading = isPhoneLoading,
-                    onDigit = onDigit,
-                    onDelete = onDelete,
-                    onClear = onClear,
-                    compact = true,
-                    showDots = false,
-                )
-            }
+            PhoneKeypadContent(
+                phoneNumber = phoneNumber,
+                isLoading = isLoading,
+                onDigit = onDigit,
+                onDelete = onDelete,
+                onClear = onClear,
+                compact = true,
+                showDots = false,
+            )
         }
     }
 }
@@ -529,9 +602,76 @@ private fun AdColumn(modifier: Modifier = Modifier) {
     }
 }
 
-// 광고 아이템 3개의 텍스트
+// ─── 세로 전용 광고 배너 (하단) ───
+// AdColumn을 눕힌 형태. 왼쪽에 브랜드 블록, 오른쪽에 아이템 카드 3개.
 @Composable
-fun ItemCard(text: String, modifier: Modifier = Modifier) {
+private fun AdBanner(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        // 브랜드 블록: 그라데이션 바 + 로고 + 문구
+        Row(
+            modifier = Modifier.weight(1.2f).fillMaxHeight(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(8.dp)
+                    .fillMaxHeight(0.8f)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(
+                        brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(Color.White, TealPrimary),
+                        )
+                    ),
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = "올인원 스포츠 시설 통합 운영 플랫폼",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Image(
+                    painter = painterResource(R.drawable.logo_bodyswitch_kr_teal),
+                    contentDescription = "바디스위치",
+                    modifier = Modifier.height(36.dp),
+                    contentScale = ContentScale.FillHeight,
+                )
+                Text(
+                    text = "회원관리\n이제 더 간편하게!",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFFFEEB1C),
+                    lineHeight = 30.sp,
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ItemCard(text = "회원관리 프로그램", modifier = Modifier.weight(1f), compact = true)
+            ItemCard(text = "IoT 시설제어", modifier = Modifier.weight(1f), compact = true)
+            ItemCard(text = "무인 입출입 관리", modifier = Modifier.weight(1f), compact = true)
+        }
+    }
+}
+
+// 광고 아이템 3개의 텍스트
+// compact = 세로 하단 배너용 (높이가 짧아 아이콘·글자를 줄인다)
+@Composable
+fun ItemCard(text: String, modifier: Modifier = Modifier, compact: Boolean = false) {
+    val iconBoxSize = if (compact) 56.dp else 80.dp
+    val iconSize = if (compact) 34.dp else 48.dp
+    val textSize = if (compact) 18.sp else 26.sp
+    val textLineHeight = if (compact) 24.sp else 40.sp
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -544,13 +684,13 @@ fun ItemCard(text: String, modifier: Modifier = Modifier) {
 
         // 2. 아이콘 영역 (고정 크기)
         Box(
-            modifier = Modifier.size(80.dp),
+            modifier = Modifier.size(iconBoxSize),
             contentAlignment = Alignment.Center
         ) {
             Image(
                 painter = painterResource(id = R.drawable.ic_drawer_lightning),
                 contentDescription = null,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(iconSize)
             )
         }
 
@@ -561,10 +701,10 @@ fun ItemCard(text: String, modifier: Modifier = Modifier) {
         Text(
             text = text,
             style = TextStyle(
-                fontSize = 26.sp, // 글자가 길면 조금 줄이는 것도 방법입니다.
+                fontSize = textSize, // 글자가 길면 조금 줄이는 것도 방법입니다.
                 fontWeight = FontWeight.Black,
                 color = Color.White,
-                lineHeight = 40.sp
+                lineHeight = textLineHeight
             )
         )
     }
@@ -577,6 +717,21 @@ private fun QrOnlyContent(
     onRequestPermission: () -> Unit,
     onQrDetected: (String) -> Unit,
 ) {
+    if (isPortrait()) {
+        Column(modifier = modifier.padding(horizontal = 16.dp)) {
+            QrSection(
+                modifier = Modifier.fillMaxWidth().weight(PORTRAIT_SINGLE_WEIGHT),
+                scanSize = LANDSCAPE_SCAN_SIZE,
+                cameraPermission = cameraPermission,
+                onRequestPermission = onRequestPermission,
+                onQrDetected = onQrDetected,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            AdBanner(modifier = Modifier.fillMaxWidth().weight(PORTRAIT_AD_WEIGHT))
+        }
+        return
+    }
+
     Row(modifier = modifier.padding(horizontal = 16.dp)) {
         // ── 광고 영역 (공통) ──
         AdColumn(modifier = Modifier.weight(0.3f).fillMaxHeight())
@@ -584,52 +739,13 @@ private fun QrOnlyContent(
         Spacer(modifier = Modifier.width(16.dp))
 
         // ── QR 영역 (폰 영역까지 확장) ──
-        Column(
-            modifier = Modifier
-                .weight(0.7f)
-                .fillMaxHeight(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-        ) {
-            // QR 헤더 (BothCheckinContent와 동일)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_qr_check),
-                    contentDescription = null,
-                    modifier = Modifier.size(100.dp),
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text("QR 체크인", fontSize = 35.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("앱의 QR코드를 스캔해 주세요", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = GrayText)
-                }
-            }
-
-            // 카메라 (BothCheckinContent와 동일 스타일, 전체 너비)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.9f)
-                    .clip(RoundedCornerShape(32.dp))
-                    .background(Color(0xFF404040)),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (cameraPermission) {
-                    CameraPreview(
-                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(32.dp)),
-                        onQrDetected = onQrDetected,
-                    )
-                } else {
-                    CameraPermissionPlaceholder(onRequestPermission)
-                }
-                QrScanOverlay(scanSize = 350.dp)
-            }
-        }
+        QrSection(
+            modifier = Modifier.weight(0.7f).fillMaxHeight(),
+            scanSize = LANDSCAPE_SCAN_SIZE,
+            cameraPermission = cameraPermission,
+            onRequestPermission = onRequestPermission,
+            onQrDetected = onQrDetected,
+        )
     }
 }
 
@@ -643,6 +759,22 @@ private fun PhoneOnlyContent(
     onDelete: () -> Unit,
     onClear: () -> Unit,
 ) {
+    if (isPortrait()) {
+        Column(modifier = modifier.padding(horizontal = 16.dp)) {
+            PhoneSection(
+                modifier = Modifier.fillMaxWidth().weight(PORTRAIT_SINGLE_WEIGHT),
+                phoneNumber = phoneNumber,
+                isLoading = isLoading,
+                onDigit = onDigit,
+                onDelete = onDelete,
+                onClear = onClear,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            AdBanner(modifier = Modifier.fillMaxWidth().weight(PORTRAIT_AD_WEIGHT))
+        }
+        return
+    }
+
     Row(modifier = modifier.padding(horizontal = 16.dp)) {
         // ── 광고 영역 (공통) ──
         AdColumn(modifier = Modifier.weight(0.3f).fillMaxHeight())
@@ -650,50 +782,14 @@ private fun PhoneOnlyContent(
         Spacer(modifier = Modifier.width(16.dp))
 
         // ── 번호 체크인 영역 (QR 영역까지 확장) ──
-        Column(
-            modifier = Modifier
-                .weight(0.7f)
-                .fillMaxHeight(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-        ) {
-            // 번호 헤더 (BothCheckinContent와 동일)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_phone_check),
-                    contentDescription = null,
-                    modifier = Modifier.size(100.dp),
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text("번호 체크인", fontSize = 35.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("전화번호 뒤 8자리를 입력해 주세요", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = GrayText)
-                }
-            }
-
-            // 입력바 + 키패드 (BothCheckinContent와 동일)
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                PhoneKeypadContent(
-                    phoneNumber = phoneNumber,
-                    isLoading = isLoading,
-                    onDigit = onDigit,
-                    onDelete = onDelete,
-                    onClear = onClear,
-                    compact = true,
-                    showDots = false,
-                )
-            }
-        }
+        PhoneSection(
+            modifier = Modifier.weight(0.7f).fillMaxHeight(),
+            phoneNumber = phoneNumber,
+            isLoading = isLoading,
+            onDigit = onDigit,
+            onDelete = onDelete,
+            onClear = onClear,
+        )
     }
 }
 
@@ -1096,7 +1192,9 @@ private fun StaffCallDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
     ) {
         Column(
             modifier = Modifier
-                .width(400.dp)
+                .padding(horizontal = 24.dp)
+                .widthIn(max = 400.dp)
+                .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
                 .background(Color.White)
                 .padding(top = 40.dp, bottom = 24.dp, start = 32.dp, end = 32.dp),
