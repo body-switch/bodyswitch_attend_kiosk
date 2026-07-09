@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.bodyswitch.checkin.data.api.KioskApi
 import com.bodyswitch.checkin.data.api.dto.ErrorResponse
 import com.bodyswitch.checkin.data.api.dto.FaceRegistrationRequest
+import com.bodyswitch.checkin.data.api.dto.MemberCandidate
+import com.bodyswitch.checkin.data.api.dto.PhoneLoginCandidatesResponse
 import com.bodyswitch.checkin.data.api.dto.PhoneLoginRequest
 import com.bodyswitch.checkin.data.api.dto.QrIssuanceRequest
 import com.bodyswitch.checkin.data.network.NetworkMonitor
@@ -19,8 +21,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// 플로우 단계: phone → (상품O) confirm → method → face/QR → done, (상품X) phone → noproduct
-enum class AccessStep { PHONE, CONFIRM, METHOD, FACE, NO_PRODUCT, DONE }
+// 플로우 단계: phone → (후보 여럿) selectMember → (상품O) confirm → method → face/QR → done,
+// (상품X) phone → noproduct
+enum class AccessStep { PHONE, SELECT_MEMBER, CONFIRM, METHOD, FACE, NO_PRODUCT, DONE }
 
 enum class AccessIssueType { FACE, QR }
 
@@ -35,6 +38,8 @@ data class AccessRegistrationUiState(
     val issueType: AccessIssueType = AccessIssueType.FACE,
     val qrPayload: String? = null,
     val accessGranted: Boolean = true,
+    // 전화번호가 여러 회원을 가리킬 때만 채워진다
+    val candidates: List<MemberCandidate> = emptyList(),
 )
 
 @HiltViewModel
@@ -50,6 +55,9 @@ class AccessRegistrationViewModel @Inject constructor(
 
     // 회원 토큰 (phone-login 응답). Bearer 인증에 사용.
     private var memberToken: String? = null
+
+    // 후보 선택 후 재로그인할 때 쓸 전화번호
+    private var pendingPhone: String? = null
 
     fun onDigit(digit: String) {
         _uiState.update {
@@ -81,6 +89,12 @@ class AccessRegistrationViewModel @Inject constructor(
         val state = _uiState.value
         return when (state.step) {
             AccessStep.PHONE -> false
+            AccessStep.SELECT_MEMBER -> {
+                _uiState.update {
+                    it.copy(step = AccessStep.PHONE, digits = "", candidates = emptyList())
+                }
+                true
+            }
             AccessStep.CONFIRM -> {
                 memberToken = null
                 _uiState.update { it.copy(step = AccessStep.PHONE, digits = "") }
@@ -103,24 +117,46 @@ class AccessRegistrationViewModel @Inject constructor(
         }
     }
 
-    // 전화번호 뒤 8자리로 회원 조회 후 상품 보유 여부에 따라 confirm / noproduct 분기
+    // 전화번호 뒤 8자리로 회원 조회 후 상품 보유 여부에 따라 confirm / noproduct 분기.
+    // 같은 지점에 같은 번호를 쓰는 회원이 여럿이면 서버가 409로 후보를 준다 → selectMember 단계.
     fun submitPhone() {
         val phone = _uiState.value.digits
         if (phone.length != PHONE_DIGITS || _uiState.value.isLoading) return
 
+        val formatted = "010-${phone.substring(0, 4)}-${phone.substring(4)}"
+        loginAndProceed(formatted, memberId = null)
+    }
+
+    // 후보 선택 화면에서 본인을 고른 뒤 그 회원으로 다시 로그인한다
+    fun selectMember(memberId: String) {
+        val phone = pendingPhone ?: return
+        if (_uiState.value.isLoading) return
+        loginAndProceed(phone, memberId = memberId)
+    }
+
+    private fun loginAndProceed(formatted: String, memberId: String?) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val formatted = "010-${phone.substring(0, 4)}-${phone.substring(4)}"
                 val login = api.phoneLogin(
                     adminToken = sessionManager.token,
-                    request = PhoneLoginRequest(phoneNumber = formatted),
+                    request = PhoneLoginRequest(
+                        phoneNumber = formatted,
+                        allowCandidates = true,
+                        memberId = memberId,
+                    ),
                 )
 
                 // 회원만 출입등록 대상 (직원 제외 정책)
                 if (login.role == "EMPLOYEE") {
                     _uiState.update {
-                        it.copy(isLoading = false, digits = "", error = "직원은 출입등록 대상이 아닙니다")
+                        it.copy(
+                            isLoading = false,
+                            digits = "",
+                            step = AccessStep.PHONE,
+                            candidates = emptyList(),
+                            error = "직원 계정으로 조회되었습니다. 데스크에 문의해 주세요",
+                        )
                     }
                     return@launch
                 }
@@ -138,14 +174,29 @@ class AccessRegistrationViewModel @Inject constructor(
                     it.copy(
                         isLoading = false,
                         memberName = login.name,
+                        candidates = emptyList(),
                         step = if (hasProduct) AccessStep.CONFIRM else AccessStep.NO_PRODUCT,
                     )
                 }
             } catch (e: retrofit2.HttpException) {
+                if (e.code() == HTTP_CONFLICT) {
+                    val candidates = parseCandidates(e)
+                    if (candidates.isNotEmpty()) {
+                        pendingPhone = formatted
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                candidates = candidates,
+                                step = AccessStep.SELECT_MEMBER,
+                            )
+                        }
+                        return@launch
+                    }
+                }
                 val errorMsg = when (e.code()) {
                     404 -> "등록된 회원이 없습니다"
                     401 -> "인증에 실패했습니다"
-                    406 -> "해당 지점의 회원이 아닙니다"
+                    406 -> serverMessage(e) ?: "해당 지점의 회원이 아닙니다"
                     else -> serverMessage(e) ?: "회원 조회 실패 (${e.code()})"
                 }
                 Log.e(TAG, "출입등록 회원 조회 실패", e)
@@ -156,6 +207,15 @@ class AccessRegistrationViewModel @Inject constructor(
             }
         }
     }
+
+    private fun parseCandidates(e: retrofit2.HttpException): List<MemberCandidate> =
+        try {
+            val errorBody = e.response()?.errorBody()?.string()
+            moshi.adapter(PhoneLoginCandidatesResponse::class.java)
+                .fromJson(errorBody ?: "")?.candidates.orEmpty()
+        } catch (_: Exception) {
+            emptyList()
+        }
 
     fun confirmMember() {
         _uiState.update { it.copy(step = AccessStep.METHOD) }
@@ -260,6 +320,7 @@ class AccessRegistrationViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "ACCESS_REG"
+        private const val HTTP_CONFLICT = 409
         const val PHONE_DIGITS = 8
     }
 }

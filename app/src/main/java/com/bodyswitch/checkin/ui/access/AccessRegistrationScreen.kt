@@ -93,6 +93,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.bodyswitch.checkin.R
+import com.bodyswitch.checkin.data.api.dto.MemberCandidate
 import com.bodyswitch.checkin.data.session.CheckinSettingsManager
 import com.bodyswitch.checkin.data.session.SessionManager
 import com.bodyswitch.checkin.ui.home.StaffCallState
@@ -249,6 +250,12 @@ fun AccessRegistrationScreen(
                     onClear = viewModel::onClear,
                     onNext = viewModel::submitPhone,
                     onBack = onExit,
+                )
+                AccessStep.SELECT_MEMBER -> SelectMemberStep(
+                    candidates = uiState.candidates,
+                    isLoading = uiState.isLoading,
+                    onSelect = viewModel::selectMember,
+                    onBack = { viewModel.goBack() },
                 )
                 AccessStep.CONFIRM -> ConfirmStep(
                     memberName = uiState.memberName,
@@ -780,6 +787,86 @@ private fun DigitCell(char: Char?, modifier: Modifier = Modifier) {
 }
 
 // ─── 3. CONFIRM: 본인확인 (상품 보유 시에만) ───
+// ─── 2-1. SELECT_MEMBER: 같은 번호를 쓰는 회원이 여럿일 때 본인 선택 ───
+// 동명이인이 있을 수 있어 이름만으로는 못 고른다. 생년은 가리고 월일만 함께 보여준다.
+@Composable
+private fun SelectMemberStep(
+    candidates: List<MemberCandidate>,
+    isLoading: Boolean,
+    onSelect: (String) -> Unit,
+    onBack: () -> Unit,
+) {
+    FlowChrome(stepIndex = 0, onBack = onBack) {
+        Spacer(modifier = Modifier.height(24.dp))
+        Text("본인을 선택해 주세요", fontSize = 44.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "이 번호로 등록된 회원이 여러 명입니다",
+            fontSize = 26.sp,
+            fontWeight = FontWeight.Medium,
+            color = TextMuted,
+        )
+        Spacer(modifier = Modifier.height(28.dp))
+
+        if (isLoading) {
+            CircularProgressIndicator(color = Teal, modifier = Modifier.size(72.dp))
+            return@FlowChrome
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 760.dp)
+                .padding(horizontal = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            candidates.forEach { candidate ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(AvatarBg)
+                        .border(1.5.dp, CellBorder, RoundedCornerShape(24.dp))
+                        .clickable { onSelect(candidate.memberId) }
+                        .padding(horizontal = 28.dp, vertical = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(52.dp),
+                        tint = AvatarIcon,
+                    )
+                    Spacer(modifier = Modifier.width(20.dp))
+                    Column {
+                        Text(
+                            candidate.name,
+                            fontSize = 40.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = TextPrimary,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "생년월일 ${candidate.maskedBirthDate}",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Teal,
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            "본인을 못 찾으시면 데스크에 문의해 주세요",
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Medium,
+            color = TextMuted,
+        )
+    }
+}
+
 @Composable
 private fun ConfirmStep(
     memberName: String,
@@ -1233,16 +1320,30 @@ private fun DoneStep(
                 modifier = Modifier
                     .size(210.dp)
                     .clip(CircleShape)
-                    .background(Teal),
+                    .background(if (accessGranted) Teal else Yellow),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(120.dp), tint = Color.White)
+                Icon(
+                    if (accessGranted) Icons.Default.Check else Icons.Default.WarningAmber,
+                    contentDescription = null,
+                    modifier = Modifier.size(120.dp),
+                    tint = if (accessGranted) Color.White else OnTeal,
+                )
             }
             Spacer(modifier = Modifier.height(30.dp))
-            Text("안면등록 완료", fontSize = 60.sp, fontWeight = FontWeight.ExtraBold, color = Teal)
+            Text(
+                if (accessGranted) "안면등록 완료" else "안면 정보만 등록됨",
+                fontSize = 60.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = if (accessGranted) Teal else Yellow,
+            )
             Spacer(modifier = Modifier.height(14.dp))
             Text(
-                "$memberName 회원님, 이제 얼굴로 간편하게 출입하실 수 있어요",
+                if (accessGranted) {
+                    "$memberName 회원님, 이제 얼굴로 간편하게 출입하실 수 있어요"
+                } else {
+                    "$memberName 회원님, 출입 등록은 아직 완료되지 않았어요"
+                },
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Medium,
                 color = TextSoft,
@@ -1285,7 +1386,11 @@ private fun DoneStep(
             Text("QR 발급 완료", fontSize = 60.sp, fontWeight = FontWeight.ExtraBold, color = Teal)
             Spacer(modifier = Modifier.height(14.dp))
             Text(
-                "$memberName 회원님, 발급된 QR 코드로 바로 입장하실 수 있어요",
+                if (accessGranted) {
+                    "$memberName 회원님, 발급된 QR 코드로 바로 입장하실 수 있어요"
+                } else {
+                    "$memberName 회원님, QR 코드가 발급되었어요"
+                },
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Medium,
                 color = TextSoft,
