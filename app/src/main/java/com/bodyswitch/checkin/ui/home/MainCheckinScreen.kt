@@ -109,6 +109,11 @@ private val LANDSCAPE_SCAN_SIZE = 350.dp
 // 세로 QR 프리뷰는 정사각, 폭 상한 (디자인: width min(100%,560px), aspect 1/1)
 private val PORTRAIT_PREVIEW_MAX_WIDTH = 560.dp
 
+// 상단바 아래 여유 공간 (디자인: 콘텐츠 영역 padding 22px)
+// 상단바 높이는 기기·방향·지점명에 따라 달라지므로 하드코딩하지 않는다.
+// 상단바를 Column에 실제로 배치해 자리를 차지하게 하고, 이 값은 그 아래 간격일 뿐이다.
+private val CONTENT_TOP_GAP = 22.dp
+
 // 디자인 토큰
 private val HeaderTitleColor = Color(0xFFF4F6F5)
 private val HeaderSubtitleColor = Color(0xFF8A9299)
@@ -275,12 +280,35 @@ fun MainCheckinScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
             )
-            // 메인 콘텐츠
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = 140.dp),
-            ) {
+            // 상단바 + 메인 콘텐츠.
+            // 상단바를 Column에 실제로 배치해 자리를 차지하게 한다. 높이를 하드코딩하지 않으므로
+            // 기기 해상도·방향·상단바 행 수와 무관하게 콘텐츠가 겹치지 않는다.
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.White.copy(alpha = 0.08f))
+                ) {
+                    TopBar(
+                        centerName = sessionManager.businessName ?: sessionManager.branchName ?: "",
+                        onStaffCall = { showStaffCallDialog = true },
+                        onAccessRegistration = onAccessRegistration,
+                        onDateClick = { scope.launch { drawerState.open() } },
+                        switchText = when (currentMode) {
+                            CheckinMode.QR -> "전화 체크인"
+                            CheckinMode.PHONE -> "QR 체크인"
+                            CheckinMode.BOTH -> ""
+                        },
+                        onSwitch = {
+                            currentMode = when (currentMode) {
+                                CheckinMode.QR -> CheckinMode.PHONE
+                                CheckinMode.PHONE -> CheckinMode.QR
+                                CheckinMode.BOTH -> CheckinMode.BOTH
+                            }
+                        },
+                    )
+                }
+                Spacer(modifier = Modifier.height(CONTENT_TOP_GAP))
                 // 체크인 영역
                 when (currentMode) {
                     CheckinMode.BOTH -> BothCheckinContent(
@@ -327,32 +355,6 @@ fun MainCheckinScreen(
                         onClear = { phoneViewModel.onPhoneNumberChange("") },
                     )
                 }
-            }
-
-            // 상단 바
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White.copy(alpha = 0.08f))
-            ) {
-                TopBar(
-                    centerName = sessionManager.businessName ?: sessionManager.branchName ?: "",
-                    onStaffCall = { showStaffCallDialog = true },
-                    onAccessRegistration = onAccessRegistration,
-                    onDateClick = { scope.launch { drawerState.open() } },
-                    switchText = when (currentMode) {
-                        CheckinMode.QR -> "전화 체크인"
-                        CheckinMode.PHONE -> "QR 체크인"
-                        CheckinMode.BOTH -> ""
-                    },
-                    onSwitch = {
-                        currentMode = when (currentMode) {
-                            CheckinMode.QR -> CheckinMode.PHONE
-                            CheckinMode.PHONE -> CheckinMode.QR
-                            CheckinMode.BOTH -> CheckinMode.BOTH
-                        }
-                    },
-                )
             }
 
             // 스낵바

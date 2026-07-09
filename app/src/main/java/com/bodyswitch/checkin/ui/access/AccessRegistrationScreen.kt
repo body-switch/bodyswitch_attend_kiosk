@@ -232,12 +232,23 @@ fun AccessRegistrationScreen(
             contentScale = ContentScale.Crop,
         )
 
-        // 콘텐츠 영역
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 130.dp),
-        ) {
+        // 상단바 + 콘텐츠 영역.
+        // 상단바를 Column에 실제로 배치해 자리를 차지하게 한다. 높이를 하드코딩하지 않으므로
+        // 기기 해상도·방향과 무관하게 콘텐츠가 겹치지 않는다.
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(PanelBg),
+            ) {
+                AccessTopBar(
+                    centerName = sessionManager.businessName ?: sessionManager.branchName ?: "",
+                    onRestart = viewModel::restart,
+                    onStaffCall = { showStaffCallDialog = true },
+                )
+            }
+
+            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             when (uiState.step) {
                 AccessStep.PHONE -> PhoneStep(
                     uiState = uiState,
@@ -287,6 +298,7 @@ fun AccessRegistrationScreen(
                     onHome = onExit,
                 )
             }
+            }
         }
 
         // 자동 복귀 임박 안내 (마지막 IDLE_WARNING_SECONDS 초)
@@ -306,19 +318,6 @@ fun AccessRegistrationScreen(
                     color = OnTeal,
                 )
             }
-        }
-
-        // 상단 바
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(PanelBg),
-        ) {
-            AccessTopBar(
-                centerName = sessionManager.businessName ?: sessionManager.branchName ?: "",
-                onRestart = viewModel::restart,
-                onStaffCall = { showStaffCallDialog = true },
-            )
         }
 
         // 스낵바
