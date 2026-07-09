@@ -6,7 +6,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -66,29 +65,6 @@ private val KeyBg = Color(0xE0FFFFFF)          // rgba(255,255,255,0.88)
 private val ActionKeyBg = Color(0xCC4AB3BC)     // rgba(74,179,188,0.80)
 private val DotEmpty = Color(0xFF3A3A3A)
 private val KeypadAreaBg = Color(0xFF1E1E1E)
-
-// ── 세로 스케일 (작은 화면에서 키패드가 스크롤 없이 한 화면에 들어오도록 높이 기준으로 축소) ──
-// 오른쪽 패널의 세로 스택 기준 높이(dp): 숫자칸(100) + 여백(32) + 키패드(472) = 604.
-//   키패드(472) = 숫자행 3개(80*3) + Clear행(80) + 확인 위 여백(12) + 확인(80) + 행간격(12*5)
-private const val REFERENCE_CONTENT_HEIGHT_DP = 604f
-// 스케일 계산에서 제외되는 고정 오버헤드(오른쪽 패널 Column 상하 패딩 32*2).
-private const val COLUMN_VERTICAL_PADDING_DP = 64f
-// 큰 화면은 원본 크기 유지(상한 1.0). 하한 0.6 = 키 높이 80*0.6=48dp(안드로이드 최소 터치 타깃)·숫자 폰트 40*0.6=24sp.
-private const val MIN_SCALE = 0.6f
-private const val MAX_SCALE = 1.0f
-
-private const val DIGIT_BOX_HEIGHT_DP = 100f
-private const val DIGIT_FONT_SP = 40f
-private const val KEY_HEIGHT_DP = 80f
-private const val KEY_FONT_SP = 32f
-private const val CLEAR_FONT_SP = 24f
-private const val ZERO_FONT_SP = 32f
-private const val BACKSPACE_FONT_SP = 28f
-private const val CONFIRM_FONT_SP = 28f
-private const val KEYPAD_ROW_SPACING_DP = 12f
-private const val DIGIT_KEYPAD_GAP_DP = 32f
-private const val CONFIRM_TOP_GAP_DP = 12f
-private const val LOADING_GAP_DP = 24f
 
 @Composable
 fun PhoneLoginScreen(
@@ -216,17 +192,13 @@ fun PhoneLoginScreen(
             }
 
             // 오른쪽 - 다크 패널에 입력 + 키패드
-            BoxWithConstraints(
+            Box(
                 modifier = Modifier
                     .weight(0.6f)
                     .fillMaxHeight()
                     .padding(end = 48.dp, top = 24.dp, bottom = 32.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                // 사용 가능한 높이(패딩 반영 후)로 스케일 팩터 계산.
-                val availableHeight = maxHeight.value - COLUMN_VERTICAL_PADDING_DP
-                val scale = (availableHeight / REFERENCE_CONTENT_HEIGHT_DP)
-                    .coerceIn(MIN_SCALE, MAX_SCALE)
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -244,7 +216,7 @@ fun PhoneLoginScreen(
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height((DIGIT_BOX_HEIGHT_DP * scale).dp)
+                                    .height(100.dp)
                                     .drawBehind {
                                         val strokeWidth = 4.dp.toPx()
                                         val color = Color.White.copy(alpha = 0.8f)
@@ -259,7 +231,7 @@ fun PhoneLoginScreen(
                             ) {
                                 Text(
                                     text = char?.toString() ?: "",
-                                    fontSize = (DIGIT_FONT_SP * scale).sp,
+                                    fontSize = 40.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,
                                 )
@@ -268,30 +240,27 @@ fun PhoneLoginScreen(
                     }
 
                     if (uiState.isLoading) {
-                        Spacer(modifier = Modifier.height((LOADING_GAP_DP * scale).dp))
+                        Spacer(modifier = Modifier.height(24.dp))
                         CircularProgressIndicator(color = TealPrimary)
                     }
 
-                    Spacer(modifier = Modifier.height((DIGIT_KEYPAD_GAP_DP * scale).dp))
+                    Spacer(modifier = Modifier.height(32.dp))
 
                     // 숫자 키패드
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy((KEYPAD_ROW_SPACING_DP * scale).dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         KeypadRow(
                             keys = listOf("1", "2", "3"),
-                            scale = scale,
                             onKeyPress = { key -> appendDigit(key, uiState.phoneNumber, viewModel) },
                         )
                         KeypadRow(
                             keys = listOf("4", "5", "6"),
-                            scale = scale,
                             onKeyPress = { key -> appendDigit(key, uiState.phoneNumber, viewModel) },
                         )
                         KeypadRow(
                             keys = listOf("7", "8", "9"),
-                            scale = scale,
                             onKeyPress = { key -> appendDigit(key, uiState.phoneNumber, viewModel) },
                         )
                         // Clear, 0, 백스페이스
@@ -303,7 +272,7 @@ fun PhoneLoginScreen(
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height((KEY_HEIGHT_DP * scale).dp)
+                                    .height(80.dp)
                                     .clip(RoundedCornerShape(99.dp))
                                     .background(ActionKeyBg)
                                     .clickable { viewModel.onPhoneNumberChange("") },
@@ -311,7 +280,7 @@ fun PhoneLoginScreen(
                             ) {
                                 Text(
                                     text = "Clear",
-                                    fontSize = (CLEAR_FONT_SP * scale).sp,
+                                    fontSize = 24.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,
                                 )
@@ -320,7 +289,7 @@ fun PhoneLoginScreen(
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height((KEY_HEIGHT_DP * scale).dp)
+                                    .height(80.dp)
                                     .clip(RoundedCornerShape(99.dp))
                                     .background(KeyBg)
                                     .clickable { appendDigit("0", uiState.phoneNumber, viewModel) },
@@ -328,7 +297,7 @@ fun PhoneLoginScreen(
                             ) {
                                 Text(
                                     text = "0",
-                                    fontSize = (ZERO_FONT_SP * scale).sp,
+                                    fontSize = 32.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color.Black,
                                 )
@@ -337,7 +306,7 @@ fun PhoneLoginScreen(
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height((KEY_HEIGHT_DP * scale).dp)
+                                    .height(80.dp)
                                     .clip(RoundedCornerShape(99.dp))
                                     .background(ActionKeyBg)
                                     .clickable {
@@ -351,18 +320,18 @@ fun PhoneLoginScreen(
                             ) {
                                 Text(
                                     text = "←",
-                                    fontSize = (BACKSPACE_FONT_SP * scale).sp,
+                                    fontSize = 28.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White,
                                 )
                             }
                         }
                         // 확인 버튼
-                        Spacer(modifier = Modifier.height((CONFIRM_TOP_GAP_DP * scale).dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height((KEY_HEIGHT_DP * scale).dp)
+                                .height(80.dp)
                                 .clip(RoundedCornerShape(99.dp))
                                 .background(
                                     if (uiState.phoneNumber.length == 8) ActionKeyBg
@@ -375,7 +344,7 @@ fun PhoneLoginScreen(
                         ) {
                             Text(
                                 text = "확인",
-                                fontSize = (CONFIRM_FONT_SP * scale).sp,
+                                fontSize = 28.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White,
                             )
@@ -477,7 +446,6 @@ private fun appendDigit(
 @Composable
 private fun KeypadRow(
     keys: List<String>,
-    scale: Float,
     onKeyPress: (String) -> Unit,
 ) {
     Row(
@@ -488,7 +456,7 @@ private fun KeypadRow(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height((KEY_HEIGHT_DP * scale).dp)
+                    .height(80.dp)
                     .clip(RoundedCornerShape(99.dp))
                     .background(KeyBg)
                     .clickable { onKeyPress(key) },
@@ -496,7 +464,7 @@ private fun KeypadRow(
             ) {
                 Text(
                     text = key,
-                    fontSize = (KEY_FONT_SP * scale).sp,
+                    fontSize = 32.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.Black,
                 )
