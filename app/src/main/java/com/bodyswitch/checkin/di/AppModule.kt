@@ -19,6 +19,8 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
+    // 체크인앱의 운영 서버다. 호스트명에 "dev"가 들어가지만 개발 서버가 아니다.
+    // 릴리스 빌드도 이 주소를 쓴다 (buildType 분기 없음).
     private const val BASE_URL = "https://api-dev.bodyswitch.co.kr/"
 
     @Provides

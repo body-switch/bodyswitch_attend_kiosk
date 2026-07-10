@@ -1,12 +1,7 @@
 package com.bodyswitch.checkin.ui.access
 
 import android.Manifest
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
-import android.content.pm.ActivityInfo
 import android.util.Log
-import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -29,6 +24,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -63,6 +59,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -79,8 +76,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
@@ -122,6 +121,17 @@ private val TextDisabled = Color(0xFF4A545B)
 private val CellBg = Color(0xFF12161A)
 private val CellBorder = Color(0xFF2A333A)
 private val DashColor = Color(0xFF3A444B)
+
+// 무인 키오스크 방치 방지 - 조작이 없으면 홈으로 복귀
+private const val IDLE_TIMEOUT_SECONDS = 60
+private const val IDLE_WARNING_SECONDS = 10
+
+// 이 폭 미만이면 진행 인디케이터를 컴팩트하게 줄여 뒤로가기와 한 줄에 유지한다
+private val STEP_INDICATOR_COMPACT_WIDTH = 820.dp
+
+// 얼굴 가이드 사각형이 카메라 프리뷰에서 차지하는 비율 (기존 480dp 기준 290x335dp)
+private const val GUIDE_WIDTH_RATIO = 0.60f
+private const val GUIDE_HEIGHT_RATIO = 0.70f
 private val KeyLight = Color(0xFFE7EAE9)
 private val KeyText = Color(0xFF15181C)
 private val DisabledBtnBg = Color(0xFF1A1F23)
@@ -140,16 +150,6 @@ private val SuccessGreen = Color(0xFF22C55E)
 
 private const val MASKED_PHONE = "010-XXXX-XXXX"
 
-// Compose Context에서 호스트 Activity 탐색 (orientation 제어용)
-private fun Context.findActivity(): Activity? {
-    var ctx: Context? = this
-    while (ctx is ContextWrapper) {
-        if (ctx is Activity) return ctx
-        ctx = ctx.baseContext
-    }
-    return null
-}
-
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun AccessRegistrationScreen(
@@ -163,34 +163,6 @@ fun AccessRegistrationScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showStaffCallDialog by remember { mutableStateOf(false) }
     var snackbarIsSuccess by remember { mutableStateOf(false) }
-
-    // 출입등록 플로우는 세로 화면으로 (나가면 원래 가로로 복원)
-    // 첫 컴포지션에서 즉시 세로 요청 → 첫 프레임부터 세로 (가로 깜빡임 방지).
-    // configChanges(orientation) + rotationAnimation=JUMPCUT → 회전 애니메이션 없이 즉시 세로로 전환.
-    val context = LocalContext.current
-    val activity = remember(context) { context.findActivity() }
-    val previousOrientation = remember {
-        // 회전 애니메이션 제거 (점프컷 = 즉시 전환)
-        activity?.window?.let { w ->
-            w.attributes = w.attributes.apply {
-                rotationAnimation = WindowManager.LayoutParams.ROTATION_ANIMATION_JUMPCUT
-            }
-        }
-        activity?.requestedOrientation.also {
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
-    }
-    DisposableEffect(Unit) {
-        onDispose {
-            activity?.requestedOrientation = previousOrientation ?: ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-            // 회전 애니메이션 기본값으로 복원
-            activity?.window?.let { w ->
-                w.attributes = w.attributes.apply {
-                    rotationAnimation = WindowManager.LayoutParams.ROTATION_ANIMATION_ROTATE
-                }
-            }
-        }
-    }
 
     val staffCallState by staffCallViewModel.state.collectAsState()
 
@@ -223,10 +195,34 @@ fun AccessRegistrationScreen(
         if (!viewModel.goBack()) onExit()
     }
 
+    // 무인 키오스크 - 일정 시간 조작이 없으면 개인정보가 뜬 채 방치되지 않도록 홈으로 복귀.
+    // 터치·단계 전환마다 타이머를 되감고, 통신/촬영 중에는 세지 않는다.
+    var interactionTick by remember { mutableIntStateOf(0) }
+    var idleRemaining by remember { mutableIntStateOf(IDLE_TIMEOUT_SECONDS) }
+    LaunchedEffect(interactionTick, uiState.step, uiState.isLoading, uiState.isRegistering) {
+        idleRemaining = IDLE_TIMEOUT_SECONDS
+        if (uiState.isLoading || uiState.isRegistering) return@LaunchedEffect
+        while (idleRemaining > 0) {
+            delay(1000L)
+            idleRemaining--
+        }
+        onExit()
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(Color.Black)
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (event.type == PointerEventType.Press) {
+                            interactionTick++
+                        }
+                    }
+                }
+            },
     ) {
         // 배경 다이아몬드 워터마크 (기존 화면과 동일)
         Image(
@@ -236,12 +232,23 @@ fun AccessRegistrationScreen(
             contentScale = ContentScale.Crop,
         )
 
-        // 콘텐츠 영역
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 130.dp),
-        ) {
+        // 상단바 + 콘텐츠 영역.
+        // 상단바를 Column에 실제로 배치해 자리를 차지하게 한다. 높이를 하드코딩하지 않으므로
+        // 기기 해상도·방향과 무관하게 콘텐츠가 겹치지 않는다.
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(PanelBg),
+            ) {
+                AccessTopBar(
+                    centerName = sessionManager.businessName ?: sessionManager.branchName ?: "",
+                    onRestart = viewModel::restart,
+                    onStaffCall = { showStaffCallDialog = true },
+                )
+            }
+
+            Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             when (uiState.step) {
                 AccessStep.PHONE -> PhoneStep(
                     uiState = uiState,
@@ -291,19 +298,26 @@ fun AccessRegistrationScreen(
                     onHome = onExit,
                 )
             }
+            }
         }
 
-        // 상단 바
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(PanelBg),
-        ) {
-            AccessTopBar(
-                centerName = sessionManager.businessName ?: sessionManager.branchName ?: "",
-                onRestart = viewModel::restart,
-                onStaffCall = { showStaffCallDialog = true },
-            )
+        // 자동 복귀 임박 안내 (마지막 IDLE_WARNING_SECONDS 초)
+        if (idleRemaining in 1..IDLE_WARNING_SECONDS) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Yellow)
+                    .padding(horizontal = 28.dp, vertical = 14.dp),
+            ) {
+                Text(
+                    "${idleRemaining}초 후 처음 화면으로 돌아갑니다",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = OnTeal,
+                )
+            }
         }
 
         // 스낵바
@@ -451,67 +465,65 @@ private fun AccessTopBar(
 private fun FlowChrome(
     stepIndex: Int?,
     onBack: () -> Unit,
-    content: @Composable () -> Unit,
+    scrollable: Boolean = true,
+    content: @Composable ColumnScope.() -> Unit,
 ) {
     val scrollState = rememberScrollState()
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // 폭이 넉넉하면(≈800dp+) 뒤로가기+인디케이터를 한 줄에,
-        // 좁으면(8인치급 ~600dp) 라벨 겹침 방지를 위해 뒤로가기를 윗줄로 분리
+        // 뒤로가기와 진행 인디케이터는 항상 같은 줄에 둔다.
+        // 좁은 화면(8인치급 ~600dp)에서는 인디케이터를 컴팩트하게 줄여 겹침을 막는다.
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 10.dp),
         ) {
-            val sameLine = maxWidth >= 820.dp
-            if (sameLine) {
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    BackChip(onBack = onBack, modifier = Modifier.align(Alignment.CenterStart).padding(start = 24.dp))
-                    if (stepIndex != null) {
-                        StepIndicator(current = stepIndex)
-                    }
-                }
-            } else {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        BackChip(onBack = onBack, modifier = Modifier.align(Alignment.CenterStart).padding(start = 24.dp))
-                    }
-                    if (stepIndex != null) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        StepIndicator(current = stepIndex)
-                    }
+            val compact = maxWidth < STEP_INDICATOR_COMPACT_WIDTH
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                BackChip(onBack = onBack, modifier = Modifier.align(Alignment.CenterStart).padding(start = 24.dp))
+                if (stepIndex != null) {
+                    StepIndicator(current = stepIndex, compact = compact)
                 }
             }
         }
 
-        // 콘텐츠(스크롤) + 하단 "아래로 넘기기" 안내
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-        ) {
+        if (scrollable) {
+            // 콘텐츠(스크롤) + 하단 "아래로 넘기기" 안내
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    content()
+                    Spacer(modifier = Modifier.height(40.dp))
+                }
+                // 아직 아래에 더 볼 내용이 있으면 안내를 노출 (다 내리면 자동으로 사라짐)
+                ScrollDownHint(
+                    visible = scrollState.value < scrollState.maxValue,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth(),
+                )
+            }
+        } else {
+            // 스크롤 없이 남은 높이를 콘텐츠가 그대로 쓴다 (카메라처럼 높이에 맞춰야 하는 화면)
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(scrollState),
+                    .weight(1f)
+                    .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Spacer(modifier = Modifier.height(8.dp))
                 content()
-                Spacer(modifier = Modifier.height(40.dp))
             }
-            // 아직 아래에 더 볼 내용이 있으면 안내를 노출 (다 내리면 자동으로 사라짐)
-            ScrollDownHint(
-                visible = scrollState.value < scrollState.maxValue,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth(),
-            )
         }
     }
 }
@@ -574,40 +586,49 @@ private fun ScrollDownHint(visible: Boolean, modifier: Modifier = Modifier) {
 
 // ─── 단계 인디케이터: 전화번호 · 회원확인 · 수단선택 · 발급 ───
 @Composable
-private fun StepIndicator(current: Int) {
+private fun StepIndicator(current: Int, compact: Boolean = false) {
     val labels = listOf("전화번호", "회원확인", "수단선택", "발급")
-    // 뒤로가기 칩과 같은 라인에 들어가도록 컴팩트하게 구성
+    // 뒤로가기 칩과 같은 라인에 들어가도록 컴팩트하게 구성.
+    // compact = 좁은 화면. 가로 배치는 그대로 두고 크기만 줄여 뒤로가기와 같은 높이를 유지한다.
+    val dotSize = if (compact) 22.dp else 34.dp
+    val numberSize = if (compact) 12.sp else 17.sp
+    val labelSize = if (compact) 13.sp else 18.sp
+    val dotGap = if (compact) 4.dp else 8.dp
+    val connectorWidth = if (compact) 12.dp else 30.dp
+    val connectorGap = if (compact) 5.dp else 10.dp
+
     Row(verticalAlignment = Alignment.CenterVertically) {
         labels.forEachIndexed { index, label ->
             val active = index <= current
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(34.dp)
+                        .size(dotSize)
                         .clip(CircleShape)
                         .background(if (active) Teal else StepInactiveDot),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = "${index + 1}",
-                        fontSize = 17.sp,
+                        fontSize = numberSize,
                         fontWeight = FontWeight.ExtraBold,
                         color = if (active) OnTeal else StepInactiveText,
                     )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(dotGap))
                 Text(
                     text = label,
-                    fontSize = 18.sp,
+                    fontSize = labelSize,
                     fontWeight = FontWeight.Bold,
                     color = if (active) TextPrimary else StepInactiveText,
+                    maxLines = 1,
                 )
             }
             if (index < labels.lastIndex) {
                 Box(
                     modifier = Modifier
-                        .padding(horizontal = 10.dp)
-                        .width(30.dp)
+                        .padding(horizontal = connectorGap)
+                        .width(connectorWidth)
                         .height(3.dp)
                         .background(if (index < current) Teal else StepInactiveDot),
                 )
@@ -1074,25 +1095,16 @@ private fun FaceStep(
         )
     }
 
-    FlowChrome(stepIndex = 3, onBack = onBack) {
+    // 안내 문구 없이 카메라와 촬영 버튼만 둔다. 남은 높이에 정사각형 프리뷰를 맞춰 스크롤을 없앤다.
+    FlowChrome(stepIndex = 3, onBack = onBack, scrollable = false) {
         Spacer(modifier = Modifier.height(12.dp))
-        Text("얼굴을 등록해 주세요", fontSize = 42.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary)
-        Spacer(modifier = Modifier.height(6.dp))
-        Text("사각형 안에 얼굴을 맞추고 촬영 버튼을 눌러 주세요", fontSize = 24.sp, fontWeight = FontWeight.Medium, color = TextMuted)
-        Spacer(modifier = Modifier.height(4.dp))
-        // 재등록 = 덮어쓰기 정책 안내
-        Text("촬영한 사진으로 출입 얼굴이 등록/교체됩니다", fontSize = 20.sp, fontWeight = FontWeight.Medium, color = Teal)
 
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // 카메라 + 실시간 가이드 + 촬영 오버레이 (폭 비례 정사각형)
+        // 카메라 + 실시간 가이드 + 촬영 오버레이 (남은 높이에 맞춘 정사각형)
         // 규격 충족 시 박스 테두리가 초록으로 바뀌어 "지금 찍으면 됩니다"를 알림
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = 480.dp)
-                .padding(horizontal = 24.dp)
-                .aspectRatio(1f)
+                .weight(1f)
+                .aspectRatio(1f, matchHeightConstraintsFirst = true)
                 .clip(RoundedCornerShape(32.dp))
                 .background(Color(0xFF404040))
                 .border(
@@ -1147,22 +1159,7 @@ private fun FaceStep(
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // 실시간 안내: 규격 충족 시 초록 "촬영하세요", 아니면 교정 문구
-        if (cameraPermission.status.isGranted && !isRegistering) {
-            val guideText = if (faceValid) "얼굴이 잘 잡혔어요. 촬영 버튼을 눌러주세요" else faceResult.feedbackMessage
-            Text(
-                text = guideText,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (faceValid) SuccessGreen else Yellow,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 24.dp),
-            )
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         // 촬영 버튼: 규격을 충족(초록)했을 때만 활성 → UBio 품질체크 탈락 최소화
         TealButton(
@@ -1177,6 +1174,7 @@ private fun FaceStep(
                 .padding(horizontal = 24.dp),
             onClick = { capture() },
         )
+        Spacer(modifier = Modifier.height(20.dp))
     }
 }
 
@@ -1191,9 +1189,10 @@ private fun FaceGuideOverlay(valid: Boolean) {
         modifier = Modifier
             .fillMaxSize()
             .drawBehind {
-                // 중앙 사각 가이드 (충족 시 실선·굵게, 미충족 시 점선)
-                val guideWidth = with(density) { 290.dp.toPx() }
-                val guideHeight = with(density) { 335.dp.toPx() }
+                // 중앙 사각 가이드 (충족 시 실선·굵게, 미충족 시 점선).
+                // 프리뷰가 남은 높이에 맞춰 줄어들 수 있으므로 고정 dp가 아닌 비율로 그린다.
+                val guideWidth = size.width * GUIDE_WIDTH_RATIO
+                val guideHeight = size.height * GUIDE_HEIGHT_RATIO
                 val stroke = with(density) { (if (valid) 6 else 4).dp.toPx() }
                 val corner = with(density) { 38.dp.toPx() }
                 val dash = with(density) { 14.dp.toPx() }

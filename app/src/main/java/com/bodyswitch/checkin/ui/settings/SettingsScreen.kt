@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -643,7 +644,9 @@ private fun SaveConfirmDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
     ) {
         Column(
             modifier = Modifier
-                .width(420.dp)
+                .padding(horizontal = 24.dp)
+                .widthIn(max = 420.dp)
+                .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
                 .background(Color(0xFF1E1E2E))
                 .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(20.dp))

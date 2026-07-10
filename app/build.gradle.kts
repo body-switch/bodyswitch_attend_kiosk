@@ -14,8 +14,8 @@ android {
         applicationId = "com.bodyswitch.checkin"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.0.3"
+        versionCode = 5
+        versionName = "1.0.4"
     }
 
     buildTypes {
@@ -27,6 +27,14 @@ android {
                 "proguard-rules.pro"
             )
         }
+    }
+
+    lint {
+        // NullSafeMutableLiveData 디텍터가 IncompatibleClassChangeError로 죽어
+        // lintVitalAnalyzeRelease가 실패하고 릴리스 빌드가 끝나지 않는다.
+        // 우리 코드 문제가 아니다 (프로젝트에 MutableLiveData 사용 0건).
+        // AGP/lint 버전 호환 이슈이므로 이 규칙만 끈다. 나머지 lint 검사는 그대로 돈다.
+        disable += "NullSafeMutableLiveData"
     }
 
     compileOptions {

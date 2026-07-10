@@ -66,6 +66,7 @@ import com.bodyswitch.checkin.data.api.dto.OpenDoorRequest
 import com.bodyswitch.checkin.data.network.NetworkMonitor
 import com.bodyswitch.checkin.data.session.CheckinSettingsManager
 import com.bodyswitch.checkin.data.session.EmployeeLoginHolder
+import com.bodyswitch.checkin.ui.common.isPortrait
 import com.squareup.moshi.Moshi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
@@ -199,6 +200,7 @@ fun EmployeeAttendTypeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val portrait = isPortrait()
 
     // 메모 입력
     var memo by remember { mutableStateOf("") }
@@ -361,7 +363,7 @@ fun EmployeeAttendTypeScreen(
                         // 배경 카드
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(0.55f)
+                                .fillMaxWidth(if (portrait) 0.9f else 0.55f)
                                 .clip(RoundedCornerShape(24.dp))
                                 .background(CardBg)
                                 .padding(horizontal = 48.dp, vertical = 40.dp),
@@ -402,14 +404,10 @@ fun EmployeeAttendTypeScreen(
                                     label = "exitFill",
                                 )
 
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(24.dp),
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    // 출근 버튼
+                                // 출근 버튼
+                                val entryButton: @Composable (Modifier) -> Unit = { buttonModifier ->
                                     Box(
-                                        modifier = Modifier
-                                            .weight(1f)
+                                        modifier = buttonModifier
                                             .height(140.dp)
                                             .clip(RoundedCornerShape(20.dp))
                                             .background(TealBg)
@@ -450,11 +448,12 @@ fun EmployeeAttendTypeScreen(
                                             )
                                         }
                                     }
+                                }
 
-                                    // 퇴근 버튼
+                                // 퇴근 버튼
+                                val exitButton: @Composable (Modifier) -> Unit = { buttonModifier ->
                                     Box(
-                                        modifier = Modifier
-                                            .weight(1f)
+                                        modifier = buttonModifier
                                             .height(140.dp)
                                             .clip(RoundedCornerShape(20.dp))
                                             .background(RedBg)
@@ -496,6 +495,24 @@ fun EmployeeAttendTypeScreen(
                                         }
                                     }
                                 }
+
+                                if (portrait) {
+                                    Column(
+                                        verticalArrangement = Arrangement.spacedBy(24.dp),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        entryButton(Modifier.fillMaxWidth())
+                                        exitButton(Modifier.fillMaxWidth())
+                                    }
+                                } else {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(24.dp),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        entryButton(Modifier.weight(1f))
+                                        exitButton(Modifier.weight(1f))
+                                    }
+                                }
                             }
                         }
 
@@ -504,7 +521,7 @@ fun EmployeeAttendTypeScreen(
                         // 메모 입력 (카드 아래)
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(0.55f)
+                                .fillMaxWidth(if (portrait) 0.9f else 0.55f)
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(CardBg)
                                 .padding(horizontal = 24.dp, vertical = 20.dp),

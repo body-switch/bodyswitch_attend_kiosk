@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -72,6 +73,7 @@ import com.bodyswitch.checkin.data.model.CoursePass
 import com.bodyswitch.checkin.data.model.Reservation
 import com.bodyswitch.checkin.data.model.Ticket
 import com.bodyswitch.checkin.data.model.TicketType
+import com.bodyswitch.checkin.ui.common.isPortrait
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -277,6 +279,8 @@ fun CheckinScreen(
 
                 else -> {
                     val member = uiState.member!!
+                    // 세로 모드에서는 카드 열 폭이 과하게 좁아지므로 1열로 쌓는다
+                    val cardColumns = if (isPortrait()) 1 else 2
                     // PASS형 체험권(이용권형)은 "이용권" 섹션에 노출한다. 레슨형 체험권/수강권만 "수강권" 섹션.
                     val activeTickets = member.tickets.filter { it.status != "INACTIVE" && !it.isPassType }
                     val expiredTickets = member.tickets.filter { it.status == "INACTIVE" && !it.isPassType }
@@ -394,7 +398,7 @@ fun CheckinScreen(
                         if (activeTickets.isNotEmpty()) {
                             SectionHeader(title = "사용 중인 수강권", count = activeTickets.size, countColor = Primary)
                             Spacer(modifier = Modifier.height(12.dp))
-                            activeTickets.chunked(2).forEach { row ->
+                            activeTickets.chunked(cardColumns).forEach { row ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -409,7 +413,7 @@ fun CheckinScreen(
                                             )
                                         }
                                     }
-                                    if (row.size < 2) Spacer(modifier = Modifier.weight(1f))
+                                    if (row.size < cardColumns) Spacer(modifier = Modifier.weight(1f))
                                 }
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
@@ -446,7 +450,7 @@ fun CheckinScreen(
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             // PASS형 체험권 (이용권처럼 예약 없이 입장)
-                            activePassTrials.chunked(2).forEach { row ->
+                            activePassTrials.chunked(cardColumns).forEach { row ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -462,11 +466,11 @@ fun CheckinScreen(
                                             )
                                         }
                                     }
-                                    if (row.size < 2) Spacer(modifier = Modifier.weight(1f))
+                                    if (row.size < cardColumns) Spacer(modifier = Modifier.weight(1f))
                                 }
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
-                            activePasses.chunked(2).forEach { row ->
+                            activePasses.chunked(cardColumns).forEach { row ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -482,7 +486,7 @@ fun CheckinScreen(
                                             )
                                         }
                                     }
-                                    if (row.size < 2) Spacer(modifier = Modifier.weight(1f))
+                                    if (row.size < cardColumns) Spacer(modifier = Modifier.weight(1f))
                                 }
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
@@ -492,7 +496,7 @@ fun CheckinScreen(
                         if (expiredTickets.isNotEmpty()) {
                             SectionHeader(title = "만료된 수강권", count = expiredTickets.size, countColor = TextMuted)
                             Spacer(modifier = Modifier.height(12.dp))
-                            expiredTickets.chunked(2).forEach { row ->
+                            expiredTickets.chunked(cardColumns).forEach { row ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -502,7 +506,7 @@ fun CheckinScreen(
                                             TicketCard(ticket = ticket, isSelected = false, isExpired = true, onClick = {})
                                         }
                                     }
-                                    if (row.size < 2) Spacer(modifier = Modifier.weight(1f))
+                                    if (row.size < cardColumns) Spacer(modifier = Modifier.weight(1f))
                                 }
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
@@ -516,7 +520,7 @@ fun CheckinScreen(
                                 countColor = TextMuted,
                             )
                             Spacer(modifier = Modifier.height(12.dp))
-                            expiredPassTrials.chunked(2).forEach { row ->
+                            expiredPassTrials.chunked(cardColumns).forEach { row ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -526,11 +530,11 @@ fun CheckinScreen(
                                             TicketCard(ticket = ticket, isSelected = false, isExpired = true, onClick = {})
                                         }
                                     }
-                                    if (row.size < 2) Spacer(modifier = Modifier.weight(1f))
+                                    if (row.size < cardColumns) Spacer(modifier = Modifier.weight(1f))
                                 }
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
-                            expiredPasses.chunked(2).forEach { row ->
+                            expiredPasses.chunked(cardColumns).forEach { row ->
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -540,7 +544,7 @@ fun CheckinScreen(
                                             PassCard(pass = pass, isSelected = false, isExpired = true, onClick = {})
                                         }
                                     }
-                                    if (row.size < 2) Spacer(modifier = Modifier.weight(1f))
+                                    if (row.size < cardColumns) Spacer(modifier = Modifier.weight(1f))
                                 }
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
@@ -680,7 +684,8 @@ fun CheckinScreen(
         ) {
             Column(
                 modifier = Modifier
-                    .width(400.dp)
+                    .widthIn(max = 400.dp)
+                    .fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
                     .background(Color.White)
                     .padding(top = 40.dp, bottom = 24.dp, start = 32.dp, end = 32.dp),
