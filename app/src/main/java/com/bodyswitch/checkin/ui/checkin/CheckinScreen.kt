@@ -102,6 +102,7 @@ fun CheckinScreen(
     onBack: () -> Unit,
     onCheckinComplete: () -> Unit,
     onEmployeeAttendType: () -> Unit = {},
+    onRequireLogin: () -> Unit = {},
     centerName: String = "",
     viewModel: CheckinViewModel = hiltViewModel(),
 ) {
@@ -153,6 +154,9 @@ fun CheckinScreen(
         if (uiState.isEmployee) {
             onEmployeeAttendType()
         }
+    }
+    LaunchedEffect(uiState.requireLogin) {
+        if (uiState.requireLogin) onRequireLogin()
     }
     LaunchedEffect(uiState.autoCheckinDone) {
         if (uiState.autoCheckinDone && !isNavigatingBack) {
