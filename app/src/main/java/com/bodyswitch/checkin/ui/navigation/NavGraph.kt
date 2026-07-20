@@ -113,6 +113,11 @@ fun NavGraph(sessionManager: SessionManager, checkinSettingsManager: CheckinSett
                         popUpTo(Routes.HOME) { inclusive = false }
                     }
                 },
+                onRequireLogin = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
                 centerName = sessionManager.businessName ?: sessionManager.branchName ?: "",
             )
         }
@@ -131,6 +136,11 @@ fun NavGraph(sessionManager: SessionManager, checkinSettingsManager: CheckinSett
                 onEmployeeAttendType = {
                     navController.navigate(Routes.EMPLOYEE_ATTEND_TYPE) {
                         popUpTo(Routes.HOME) { inclusive = false }
+                    }
+                },
+                onRequireLogin = {
+                    navController.navigate(Routes.LOGIN) {
+                        popUpTo(0) { inclusive = true }
                     }
                 },
                 centerName = sessionManager.businessName ?: sessionManager.branchName ?: "",

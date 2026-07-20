@@ -43,6 +43,8 @@ data class CheckinUiState(
     val selectedReservationId: Long? = null,
     // 직원 → 선택 화면으로 이동
     val isEmployee: Boolean = false,
+    // 지점 로그인 안 됨(branchId 없음) → 로그인 화면으로
+    val requireLogin: Boolean = false,
 )
 
 @HiltViewModel
@@ -122,6 +124,12 @@ class CheckinViewModel @Inject constructor(
     }
 
     private suspend fun loadTickets() {
+        // 지점 로그인이 안 된 상태(branchId 없음)면 요청을 보내지 않고 로그인 화면으로 유도한다.
+        if (sessionManager.branchId == null) {
+            Log.w("CHECKIN", "지점 정보 없음(branchId null) - 로그인 필요")
+            _uiState.value = _uiState.value.copy(isLoading = false, requireLogin = true)
+            return
+        }
         val bearerToken = "Bearer ${token ?: return}"
 
         try {
