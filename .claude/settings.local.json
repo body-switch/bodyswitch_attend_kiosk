@@ -27,7 +27,9 @@
       "Bash(gradle --version)",
       "Read(//mnt/c/Users/dnjs7/work/bodyswitch-api-specs/**)",
       "mcp__bodyswitch__get_api_detail",
-      "mcp__bodyswitch__execute_select_query"
+      "mcp__bodyswitch__execute_select_query",
+      "Bash(timeout 500 ./gradlew :app:compileDebugKotlin -q)",
+      "mcp__bodyswitch__search_api"
     ]
   }
 }

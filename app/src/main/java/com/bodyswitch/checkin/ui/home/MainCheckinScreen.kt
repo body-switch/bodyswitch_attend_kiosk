@@ -1155,8 +1155,8 @@ private fun TopBar(
         ) {
             Row(verticalAlignment = Alignment.Top) {
                 Text(dateFormat.format(now), fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Color.White, letterSpacing = (-0.2).sp)
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("($dayOfWeek)", modifier = Modifier.offset(y = (-5).dp), fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                Spacer(modifier = Modifier.width(2.dp))
+                Text("($dayOfWeek)", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
             }
             Text(timeFormat.format(now), fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = Color.White, letterSpacing = (-0.3).sp)
         }
