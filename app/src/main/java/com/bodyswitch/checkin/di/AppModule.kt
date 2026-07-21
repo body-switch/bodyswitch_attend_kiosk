@@ -2,6 +2,7 @@ package com.bodyswitch.checkin.di
 
 import com.bodyswitch.checkin.BuildConfig
 import com.bodyswitch.checkin.data.api.KioskApi
+import com.bodyswitch.checkin.data.network.AdminTokenInterceptor
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import dagger.Module
@@ -13,6 +14,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Module
@@ -29,9 +31,7 @@ object AppModule {
         .addLast(KotlinJsonAdapterFactory())
         .build()
 
-    @Provides
-    @Singleton
-    fun provideOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
+    private fun newOkHttpBuilder(): OkHttpClient.Builder = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
         // 안면 이미지(base64 대용량) 업로드 대비: 기본 10s로는 부족할 수 있음
@@ -46,7 +46,20 @@ object AppModule {
                 }
             }
         )
-        .build()
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(adminTokenInterceptor: AdminTokenInterceptor): OkHttpClient =
+        newOkHttpBuilder()
+            .addInterceptor(adminTokenInterceptor)
+            .build()
+
+    // 토큰 자동 갱신용 재로그인 전용 클라이언트. AdminTokenInterceptor를 달지 않아
+    // 인터셉터 안에서의 재로그인 호출이 자기 자신을 재진입하지 않게 한다.
+    @Provides
+    @Singleton
+    @Named("refresh")
+    fun provideRefreshOkHttpClient(): OkHttpClient = newOkHttpBuilder().build()
 
     @Provides
     @Singleton
@@ -59,6 +72,25 @@ object AppModule {
 
     @Provides
     @Singleton
+    @Named("refresh")
+    fun provideRefreshRetrofit(
+        @Named("refresh") okHttpClient: OkHttpClient,
+        moshi: Moshi,
+    ): Retrofit =
+        Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+
+    @Provides
+    @Singleton
     fun provideKioskApi(retrofit: Retrofit): KioskApi =
+        retrofit.create(KioskApi::class.java)
+
+    @Provides
+    @Singleton
+    @Named("refresh")
+    fun provideRefreshKioskApi(@Named("refresh") retrofit: Retrofit): KioskApi =
         retrofit.create(KioskApi::class.java)
 }
