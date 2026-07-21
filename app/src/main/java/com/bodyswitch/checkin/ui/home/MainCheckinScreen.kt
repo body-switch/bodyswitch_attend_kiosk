@@ -1249,7 +1249,19 @@ private fun TopBar(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         dateTimeBlock()
-        Text(centerName, fontSize = 28.sp, fontWeight = FontWeight.Medium, color = Color.White)
+        Text(
+            centerName,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            // weight로 남는 폭만 차지하게 해 지점명이 길어도 양옆(날짜·버튼)을 밀지 않는다
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 16.dp),
+        )
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),

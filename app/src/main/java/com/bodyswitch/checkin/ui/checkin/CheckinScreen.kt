@@ -62,6 +62,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -236,6 +238,13 @@ fun CheckinScreen(
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Medium,
                         color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        // weight로 남는 폭만 차지하게 해 지점명이 길어도 양옆(날짜·버튼)을 밀지 않는다
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 16.dp),
                     )
                     Box(
                         modifier = Modifier
