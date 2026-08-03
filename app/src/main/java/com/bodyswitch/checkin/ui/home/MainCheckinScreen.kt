@@ -1442,7 +1442,7 @@ private fun StaffCallDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
 private fun MainCheckinScreenPreview() {
     val context = androidx.compose.ui.platform.LocalContext.current
     val autoLoginManager = com.bodyswitch.checkin.data.session.AutoLoginManager(context)
-    val sessionManager = SessionManager(autoLoginManager)
+    val sessionManager = SessionManager(context, autoLoginManager)
     sessionManager.login(
         token = "preview",
         username = "admin",

@@ -63,8 +63,10 @@ fun NavGraph(sessionManager: SessionManager, checkinSettingsManager: CheckinSett
     ) {
         composable(Routes.SPLASH) {
             SplashScreen(
+                // 세션은 영속화되므로 프로세스가 회수됐다 다시 떠도 로그인 상태면 홈으로 바로 간다.
                 onSplashFinished = {
-                    navController.navigate(Routes.LOGIN) {
+                    val next = if (sessionManager.isLoggedIn) Routes.HOME else Routes.LOGIN
+                    navController.navigate(next) {
                         popUpTo(Routes.SPLASH) { inclusive = true }
                     }
                 },
