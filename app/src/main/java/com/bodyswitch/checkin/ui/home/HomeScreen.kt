@@ -615,7 +615,8 @@ private fun CheckinMethodCard(
 )
 @Composable
 private fun HomeScreenPreview() {
-    val sessionManager = SessionManager(AutoLoginManager(androidx.compose.ui.platform.LocalContext.current))
+    val previewContext = androidx.compose.ui.platform.LocalContext.current
+    val sessionManager = SessionManager(previewContext, AutoLoginManager(previewContext))
     sessionManager.login(
         token = "preview",
         username = "admin",
