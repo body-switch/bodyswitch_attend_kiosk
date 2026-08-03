@@ -6,6 +6,7 @@ import com.bodyswitch.checkin.data.api.dto.AttendanceResponse
 import com.bodyswitch.checkin.data.api.dto.BranchInfoResponse
 import com.bodyswitch.checkin.data.api.dto.CancelCheckinRequest
 import com.bodyswitch.checkin.data.api.dto.CancelCheckinResponse
+import com.bodyswitch.checkin.data.api.dto.CheckinFailureReportRequest
 import com.bodyswitch.checkin.data.api.dto.CheckinHistoryResponse
 import com.bodyswitch.checkin.data.api.dto.AttendRequest
 import com.bodyswitch.checkin.data.api.dto.AttendResponse
@@ -196,5 +197,11 @@ interface KioskApi {
     suspend fun openDoor(
         @Header("Authorization") authorization: String,
         @Body request: OpenDoorRequest,
+    ): Response<Unit>
+
+    // 앱에서 발생한 실패를 서버 로그에 남긴다. 토큰이 죽은 실패도 보고해야 하므로 인증 없음
+    @POST("kiosk/api/v1/client-logs/checkin-failure")
+    suspend fun reportCheckinFailure(
+        @Body request: CheckinFailureReportRequest,
     ): Response<Unit>
 }

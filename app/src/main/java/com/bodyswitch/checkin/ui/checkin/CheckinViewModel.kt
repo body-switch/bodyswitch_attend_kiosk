@@ -1,5 +1,6 @@
 package com.bodyswitch.checkin.ui.checkin
 
+import android.os.SystemClock
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -18,7 +19,10 @@ import com.bodyswitch.checkin.data.model.Member
 import com.bodyswitch.checkin.data.model.Reservation
 import com.bodyswitch.checkin.data.model.Ticket
 import com.bodyswitch.checkin.data.model.TicketType
+import com.bodyswitch.checkin.data.network.CheckinFailure
+import com.bodyswitch.checkin.data.network.CheckinFailureReporter
 import com.bodyswitch.checkin.data.network.NetworkMonitor
+import com.bodyswitch.checkin.data.network.toCheckinFailure
 import com.bodyswitch.checkin.data.session.SessionManager
 import com.squareup.moshi.Moshi
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -61,6 +65,7 @@ class CheckinViewModel @Inject constructor(
     private val sessionManager: SessionManager,
     private val networkMonitor: NetworkMonitor,
     private val settingsManager: CheckinSettingsManager,
+    private val failureReporter: CheckinFailureReporter,
 ) : ViewModel() {
 
     private val qrData: String? = savedStateHandle.get<String>("qrData")?.let {
@@ -92,6 +97,7 @@ class CheckinViewModel @Inject constructor(
     private fun authenticate() {
         viewModelScope.launch {
             _uiState.value = CheckinUiState(isLoading = true)
+            val startedAt = SystemClock.elapsedRealtime()
 
             try {
                 Log.d("CHECKIN", "QR 로그인 시도: $qrData")
@@ -117,21 +123,21 @@ class CheckinViewModel @Inject constructor(
                 }
 
                 loadTickets()
-            } catch (e: retrofit2.HttpException) {
-                val errorMsg = when (e.code()) {
-                    404 -> "회원을 찾을 수 없습니다"
-                    401 -> "QR 코드가 유효하지 않습니다"
-                    406 -> "해당 지점의 회원이 아닙니다"
-                    else -> "로그인 실패 (${e.code()})"
+            } catch (e: Exception) {
+                val failure = e.classify("로그인에 실패했습니다")
+                val errorMsg = if (e is retrofit2.HttpException) {
+                    when (e.code()) {
+                        404 -> "회원을 찾을 수 없습니다"
+                        401 -> "QR 코드가 유효하지 않습니다"
+                        406 -> "해당 지점의 회원이 아닙니다"
+                        else -> "로그인 실패 (${e.code()})"
+                    }
+                } else {
+                    failure.userMessage
                 }
                 Log.e("CHECKIN", "로그인 실패", e)
+                reportFailure(CheckinFailureReporter.Step.QR_LOGIN, failure, startedAt)
                 _uiState.value = _uiState.value.copy(isLoading = false, error = errorMsg)
-            } catch (e: Exception) {
-                Log.e("CHECKIN", "네트워크 오류", e)
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = networkMonitor.networkErrorMessage(),
-                )
             }
         }
     }
@@ -144,6 +150,7 @@ class CheckinViewModel @Inject constructor(
             return
         }
         val bearerToken = "Bearer ${token ?: return}"
+        val startedAt = SystemClock.elapsedRealtime()
 
         try {
             val response = api.getTickets(bearerToken, branchId = sessionManager.branchId)
@@ -229,10 +236,12 @@ class CheckinViewModel @Inject constructor(
                 member = member,
             )
         } catch (e: Exception) {
+            val failure = e.classify("이용권 정보를 불러올 수 없습니다")
             Log.e("CHECKIN", "이용권 조회 실패", e)
+            reportFailure(CheckinFailureReporter.Step.TICKETS, failure, startedAt)
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
-                error = "이용권 정보를 불러올 수 없습니다",
+                error = failure.userMessage,
             )
         }
     }
@@ -271,6 +280,7 @@ class CheckinViewModel @Inject constructor(
         viewModelScope.launch {
             val bearerToken = "Bearer ${token ?: return@launch}"
             _uiState.value = _uiState.value.copy(reservationsLoading = true)
+            val startedAt = SystemClock.elapsedRealtime()
 
             try {
                 val response = api.getReservations(
@@ -302,6 +312,11 @@ class CheckinViewModel @Inject constructor(
                 Log.d("CHECKIN", "예약 조회 성공: ${reservations.size}건")
             } catch (e: Exception) {
                 Log.e("CHECKIN", "예약 조회 실패", e)
+                reportFailure(
+                    CheckinFailureReporter.Step.RESERVATIONS,
+                    e.classify("예약 정보를 불러올 수 없습니다"),
+                    startedAt,
+                )
                 _uiState.value = _uiState.value.copy(
                     reservationsLoading = false,
                     reservationsLoaded = true,
@@ -339,6 +354,7 @@ class CheckinViewModel @Inject constructor(
         val bearerToken = "Bearer ${token ?: return}"
 
         _uiState.value = state.copy(isLoading = true)
+        val startedAt = SystemClock.elapsedRealtime()
 
         try {
             val response = api.attend(
@@ -357,21 +373,13 @@ class CheckinViewModel @Inject constructor(
                 checkinMessage = response.message,
             )
             openDoorIfEnabled()
-        } catch (e: retrofit2.HttpException) {
-            val errorBody = e.response()?.errorBody()?.string()
-            val errorMsg = try {
-                moshi.adapter(ErrorResponse::class.java)
-                    .fromJson(errorBody ?: "")?.message
-            } catch (_: Exception) {
-                null
-            } ?: "출석 처리에 실패했습니다 (${e.code()})"
-            Log.e("CHECKIN", "출석 처리 실패: $errorMsg")
-            _uiState.value = _uiState.value.copy(isLoading = false, error = errorMsg)
         } catch (e: Exception) {
-            Log.e("CHECKIN", "출석 네트워크 오류", e)
+            val failure = e.classify("출석 처리에 실패했습니다")
+            Log.e("CHECKIN", "출석 처리 실패: ${failure.userMessage}", e)
+            reportFailure(CheckinFailureReporter.Step.ATTEND, failure, startedAt)
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
-                error = networkMonitor.networkErrorMessage(),
+                error = failure.userMessage,
             )
         }
     }
@@ -382,6 +390,7 @@ class CheckinViewModel @Inject constructor(
     private suspend fun performReentry(reentryMessage: String?) {
         val bearerToken = "Bearer ${token ?: return}"
         val branchId = sessionManager.branchId ?: return
+        val startedAt = SystemClock.elapsedRealtime()
 
         try {
             val response = api.reentry(
@@ -399,21 +408,13 @@ class CheckinViewModel @Inject constructor(
                 checkinMessage = response.message ?: reentryMessage,
             )
             openDoorIfEnabled()
-        } catch (e: retrofit2.HttpException) {
-            val errorBody = e.response()?.errorBody()?.string()
-            val errorMsg = try {
-                moshi.adapter(ErrorResponse::class.java)
-                    .fromJson(errorBody ?: "")?.message
-            } catch (_: Exception) {
-                null
-            } ?: "재입장 처리에 실패했습니다 (${e.code()})"
-            Log.e("CHECKIN", "재입장 처리 실패: $errorMsg")
-            _uiState.value = _uiState.value.copy(isLoading = false, error = errorMsg)
         } catch (e: Exception) {
-            Log.e("CHECKIN", "재입장 네트워크 오류", e)
+            val failure = e.classify("재입장 처리에 실패했습니다")
+            Log.e("CHECKIN", "재입장 처리 실패: ${failure.userMessage}", e)
+            reportFailure(CheckinFailureReporter.Step.REENTRY, failure, startedAt)
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
-                error = networkMonitor.networkErrorMessage(),
+                error = failure.userMessage,
             )
         }
     }
@@ -425,6 +426,7 @@ class CheckinViewModel @Inject constructor(
         val bearerToken = "Bearer ${token ?: return}"
 
         _uiState.value = state.copy(isLoading = true)
+        val startedAt = SystemClock.elapsedRealtime()
 
         try {
             val response = api.checkin(
@@ -458,13 +460,27 @@ class CheckinViewModel @Inject constructor(
                 } ?: "체크인에 실패했습니다 (${response.code()})"
 
                 Log.e("CHECKIN", "체크인 실패: $errorMsg")
+                // 예외가 아니라 비-2xx 응답이라 catch로 오지 않는다. 여기서 직접 보고한다
+                reportFailure(
+                    CheckinFailureReporter.Step.CHECKIN,
+                    CheckinFailure(
+                        userMessage = errorMsg,
+                        httpStatus = response.code(),
+                        errorType = "HttpErrorResponse",
+                        errorMessage = errorMsg,
+                        errorBody = errorBody,
+                    ),
+                    startedAt,
+                )
                 _uiState.value = _uiState.value.copy(isLoading = false, error = errorMsg)
             }
         } catch (e: Exception) {
-            Log.e("CHECKIN", "체크인 네트워크 오류", e)
+            val failure = e.classify("체크인에 실패했습니다")
+            Log.e("CHECKIN", "체크인 실패: ${failure.userMessage}", e)
+            reportFailure(CheckinFailureReporter.Step.CHECKIN, failure, startedAt)
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
-                error = networkMonitor.networkErrorMessage(),
+                error = failure.userMessage,
             )
         }
     }
@@ -479,16 +495,47 @@ class CheckinViewModel @Inject constructor(
         if (sensorId.isBlank()) return
         val bearerToken = "Bearer ${token ?: return}"
         viewModelScope.launch {
+            val startedAt = SystemClock.elapsedRealtime()
             try {
                 api.openDoor(bearerToken, OpenDoorRequest(sensorId))
                 Log.d("CHECKIN", "출입문 열림 요청 성공: $sensorId")
             } catch (e: Exception) {
                 Log.e("CHECKIN", "출입문 열기 실패(무시)", e)
+                reportFailure(
+                    CheckinFailureReporter.Step.OPEN_DOOR,
+                    e.classify("출입문 열기에 실패했습니다"),
+                    startedAt,
+                )
             }
         }
     }
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    /** 예외를 화면 문구와 서버 보고용 필드로 분해한다. */
+    private fun Throwable.classify(fallback: String): CheckinFailure =
+        toCheckinFailure(moshi, networkMonitor.isOnline(), fallback)
+
+    /**
+     * 실패를 서버 로그에 남긴다.
+     *
+     * @param startedAt 해당 API 호출 직전의 [SystemClock.elapsedRealtime]. 경과 시간이
+     *     읽기 타임아웃(15초)에 근접하면 서버 지연, 짧으면 서버가 거부한 것으로 갈린다
+     */
+    private fun reportFailure(
+        step: CheckinFailureReporter.Step,
+        failure: CheckinFailure,
+        startedAt: Long,
+    ) {
+        failureReporter.report(
+            step = step,
+            failure = failure,
+            elapsedMs = SystemClock.elapsedRealtime() - startedAt,
+            branchId = sessionManager.branchId,
+            memberName = _uiState.value.member?.name,
+            checkInMethod = checkInMethod,
+        )
     }
 }
