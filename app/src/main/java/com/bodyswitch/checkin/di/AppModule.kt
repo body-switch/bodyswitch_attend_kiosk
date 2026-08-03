@@ -3,6 +3,7 @@ package com.bodyswitch.checkin.di
 import com.bodyswitch.checkin.BuildConfig
 import com.bodyswitch.checkin.data.api.KioskApi
 import com.bodyswitch.checkin.data.network.AdminTokenInterceptor
+import com.bodyswitch.checkin.data.network.RetryInterceptor
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import dagger.Module
@@ -23,6 +24,7 @@ object AppModule {
 
     // 체크인앱의 운영 서버다. 호스트명에 "dev"가 들어가지만 개발 서버가 아니다.
     // 릴리스 빌드도 이 주소를 쓴다 (buildType 분기 없음).
+    // ⚠️ api.bodyswitch.co.kr 은 admin 앱으로 라우팅되어 /kiosk/** 가 전부 403이다. 바꾸지 말 것.
     private const val BASE_URL = "https://api-dev.bodyswitch.co.kr/"
 
     @Provides
@@ -47,10 +49,15 @@ object AppModule {
             }
         )
 
+    // retry가 바깥, adminToken이 안쪽이다. 재시도할 때마다 토큰 갱신 여부를 다시 판단한다.
     @Provides
     @Singleton
-    fun provideOkHttpClient(adminTokenInterceptor: AdminTokenInterceptor): OkHttpClient =
+    fun provideOkHttpClient(
+        retryInterceptor: RetryInterceptor,
+        adminTokenInterceptor: AdminTokenInterceptor,
+    ): OkHttpClient =
         newOkHttpBuilder()
+            .addInterceptor(retryInterceptor)
             .addInterceptor(adminTokenInterceptor)
             .build()
 

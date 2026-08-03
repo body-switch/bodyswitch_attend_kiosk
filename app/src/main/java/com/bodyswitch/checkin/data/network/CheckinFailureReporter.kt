@@ -54,6 +54,32 @@ class CheckinFailureReporter @Inject constructor(
         }
     }
 
+    /**
+     * 자동 재시도로 살아난 요청을 서버에 남긴다.
+     *
+     * 재시도가 조용히 성공하면 현장은 조용해지지만 문제도 안 보이게 된다.
+     * 빈도가 로그에 쌓여야 심각도를 판단할 수 있다.
+     */
+    fun reportRetrySucceeded(path: String, attempt: Int, elapsedMs: Long) {
+        scope.launch {
+            runCatching {
+                api.reportCheckinFailure(
+                    CheckinFailureReportRequest(
+                        step = STEP_RETRY_SUCCEEDED,
+                        branchId = null,
+                        memberName = null,
+                        checkInMethod = null,
+                        httpStatus = null,
+                        errorType = "SocketTimeoutException",
+                        errorMessage = "$path 시도 ${attempt}회만에 성공",
+                        errorBody = null,
+                        elapsedMs = elapsedMs,
+                    )
+                )
+            }.onFailure { Log.w(TAG, "재시도 보고 전송 실패", it) }
+        }
+    }
+
     /** 실패가 발생한 체크인 단계. 서버 로그의 step= 값이 된다. */
     enum class Step {
         QR_LOGIN,
@@ -67,5 +93,6 @@ class CheckinFailureReporter @Inject constructor(
 
     private companion object {
         const val TAG = "CHECKIN"
+        const val STEP_RETRY_SUCCEEDED = "RETRY_SUCCEEDED"
     }
 }
