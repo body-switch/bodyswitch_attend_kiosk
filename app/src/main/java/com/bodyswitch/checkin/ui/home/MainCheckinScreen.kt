@@ -82,6 +82,8 @@ import com.bodyswitch.checkin.data.session.SessionManager
 import com.bodyswitch.checkin.ui.common.isPortrait
 import com.bodyswitch.checkin.data.api.dto.MemberCandidate
 import com.bodyswitch.checkin.ui.common.MemberCandidateList
+import com.bodyswitch.checkin.ui.common.PhoneDigitCells
+import com.bodyswitch.checkin.ui.common.PhoneKeypad
 import com.bodyswitch.checkin.ui.phone.PhoneLoginViewModel
 import com.bodyswitch.checkin.ui.scanner.CameraPreview
 import com.bodyswitch.checkin.ui.scanner.ScannerViewModel
@@ -753,8 +755,6 @@ private fun PhoneSection(
                 onDigit = onDigit,
                 onDelete = onDelete,
                 onClear = onClear,
-                compact = true,
-                showDots = false,
             )
         }
     }
@@ -1028,6 +1028,7 @@ private fun PhoneOnlyContent(
 }
 
 // ─── 공통 컴포넌트: 번호 키패드 ───
+// 출입등록(AccessRegistrationScreen)과 같은 UI를 쓴다 — ui/common/PhoneDigitKeypad.kt
 @Composable
 private fun PhoneKeypadContent(
     phoneNumber: String,
@@ -1035,121 +1036,28 @@ private fun PhoneKeypadContent(
     onDigit: (String) -> Unit,
     onDelete: () -> Unit,
     onClear: () -> Unit,
-    compact: Boolean,
-    showDots: Boolean = true,
-    showInputBar: Boolean = true,
 ) {
-    val dotSize = if (compact) 36.dp else 44.dp
-    val dotSpacing = if (compact) 8.dp else 12.dp
-    val dotFontSize = if (compact) 18.sp else 22.sp
-    val keyHeight = if (compact) 70.dp else 83.dp
-    val keyFontSize = if (compact) 30.sp else 32.sp
-    val keySpacing = if (compact) 20.dp else 20.dp
-
-    // 뒤 4자리만 입력받는다. 앞자리는 서버가 알아서 매칭한다.
-    val formattedNumber = phoneNumber
-    val fontSize = if (compact) 40.sp else 40.sp
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (showInputBar) {
-            // 전화번호 입력 표시 + 하단 바
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(if (compact) 60.dp else 80.dp)
-                    .drawBehind {
-                        drawLine(
-                            color = Color.White.copy(alpha = 0.8f),
-                            start = Offset(0f, size.height),
-                            end = Offset(size.width, size.height),
-                            strokeWidth = 4.dp.toPx(),
-                        )
-                    },
-                contentAlignment = Alignment.BottomStart,
-            ) {
-                Text(
-                    text = formattedNumber,
-                    fontSize = fontSize,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.padding(bottom = 8.dp, start = 4.dp),
-                )
-            }
+        PhoneDigitCells(
+            digits = phoneNumber,
+            count = PhoneLoginViewModel.PHONE_DIGITS,
+        )
 
-            if (isLoading) {
-                Spacer(modifier = Modifier.height(16.dp))
-                CircularProgressIndicator(color = TealPrimary, modifier = Modifier.size(32.dp))
-            }
+        if (isLoading) {
+            Spacer(modifier = Modifier.height(16.dp))
+            CircularProgressIndicator(color = TealPrimary, modifier = Modifier.size(32.dp))
+        }
 
-            Spacer(modifier = Modifier.height(if (compact) 12.dp else 24.dp))
-        }
-        Spacer(modifier = Modifier.padding(10.dp))
-        // 키패드
-        val keypadRows = remember { listOf(listOf("1","2","3"), listOf("4","5","6"), listOf("7","8","9")) }
-        Column(verticalArrangement = Arrangement.spacedBy(keySpacing)) {
-            keypadRows.forEach { row ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(keySpacing),
-                ) {
-                    row.forEach { key ->
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(keyHeight)
-                                .clip(RoundedCornerShape(99.dp))
-                                .background(KeyBg)
-                                .clickable { onDigit(key) },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(key, fontSize = keyFontSize, fontWeight = FontWeight.SemiBold, color = Color.Black)
-                        }
-                    }
-                }
-            }
-            // 마지막 줄: C, 0, ←
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(keySpacing),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(keyHeight)
-                        .clip(RoundedCornerShape(99.dp))
-                        .background(ActionKeyBg)
-                        .clickable { onClear() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("C", fontSize = (keyFontSize.value - 2).sp, fontWeight = FontWeight.Bold, color = Color.White)
-                }
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(keyHeight)
-                        .clip(RoundedCornerShape(99.dp))
-                        .background(KeyBg)
-                        .clickable { onDigit("0") },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("0", fontSize = keyFontSize, fontWeight = FontWeight.SemiBold, color = Color.Black)
-                }
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(keyHeight)
-                        .clip(RoundedCornerShape(99.dp))
-                        .background(ActionKeyBg)
-                        .clickable { onDelete() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Default.Backspace, contentDescription = "지우기", modifier = Modifier.size(24.dp), tint = Color.White)
-                }
-            }
-        }
+        Spacer(modifier = Modifier.height(28.dp))
+
+        PhoneKeypad(
+            onDigit = onDigit,
+            onClear = onClear,
+            onDelete = onDelete,
+        )
     }
 }
 

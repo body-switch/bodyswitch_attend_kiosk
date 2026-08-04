@@ -38,7 +38,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Face
@@ -94,6 +93,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.bodyswitch.checkin.R
 import com.bodyswitch.checkin.data.api.dto.MemberCandidate
 import com.bodyswitch.checkin.ui.common.MemberCandidateList
+import com.bodyswitch.checkin.ui.common.PhoneDigitCells
+import com.bodyswitch.checkin.ui.common.PhoneKeypad
 import com.bodyswitch.checkin.data.session.CheckinSettingsManager
 import com.bodyswitch.checkin.data.session.SessionManager
 import com.bodyswitch.checkin.ui.home.StaffCallState
@@ -119,9 +120,7 @@ private val TextPrimary = Color(0xFFF4F6F5)
 private val TextMuted = Color(0xFF8A9299)
 private val TextSoft = Color(0xFFC7D0D5)
 private val TextDisabled = Color(0xFF4A545B)
-private val CellBg = Color(0xFF12161A)
 private val CellBorder = Color(0xFF2A333A)
-private val DashColor = Color(0xFF3A444B)
 
 // 무인 키오스크 방치 방지 - 조작이 없으면 홈으로 복귀
 private const val IDLE_TIMEOUT_SECONDS = 60
@@ -133,8 +132,6 @@ private val STEP_INDICATOR_COMPACT_WIDTH = 820.dp
 // 얼굴 가이드 사각형이 카메라 프리뷰에서 차지하는 비율 (기존 480dp 기준 290x335dp)
 private const val GUIDE_WIDTH_RATIO = 0.60f
 private const val GUIDE_HEIGHT_RATIO = 0.70f
-private val KeyLight = Color(0xFFE7EAE9)
-private val KeyText = Color(0xFF15181C)
 private val DisabledBtnBg = Color(0xFF1A1F23)
 private val GhostBorder = Color(0xFF3A444B)
 private val StepInactiveDot = Color(0xFF20262B)
@@ -695,7 +692,7 @@ private fun GhostButton(
     }
 }
 
-// ─── 2. PHONE: 전화번호 뒤 8자리 입력 ───
+// ─── 2. PHONE: 전화번호 뒤 4자리 입력 ───
 @Composable
 private fun PhoneStep(
     uiState: AccessRegistrationUiState,
@@ -713,59 +710,19 @@ private fun PhoneStep(
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        // 4자리 셀 (폭 비례로 어떤 태블릿에서도 맞게)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .widthIn(max = 380.dp)
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            repeat(AccessRegistrationViewModel.PHONE_DIGITS) { i ->
-                DigitCell(char = uiState.digits.getOrNull(i), modifier = Modifier.weight(1f))
-            }
-        }
+        PhoneDigitCells(
+            digits = uiState.digits,
+            count = AccessRegistrationViewModel.PHONE_DIGITS,
+            modifier = Modifier.padding(horizontal = 20.dp),
+        )
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // 키패드
-        val keypadRows = remember { listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("C", "0", "⌫")) }
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            keypadRows.forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    row.forEach { key ->
-                        val isAction = key == "C" || key == "⌫"
-                        Box(
-                            modifier = Modifier
-                                .width(118.dp)
-                                .height(74.dp)
-                                .clip(RoundedCornerShape(18.dp))
-                                .background(if (isAction) Teal else KeyLight)
-                                .clickable {
-                                    when (key) {
-                                        "C" -> onClear()
-                                        "⌫" -> onDelete()
-                                        else -> onDigit(key)
-                                    }
-                                },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (key == "⌫") {
-                                Icon(Icons.Default.Backspace, contentDescription = "지우기", modifier = Modifier.size(30.dp), tint = OnTeal)
-                            } else {
-                                Text(
-                                    text = key,
-                                    fontSize = 36.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = if (isAction) OnTeal else KeyText,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        PhoneKeypad(
+            onDigit = onDigit,
+            onClear = onClear,
+            onDelete = onDelete,
+        )
 
         Spacer(modifier = Modifier.height(26.dp))
 
@@ -785,20 +742,6 @@ private fun PhoneStep(
                 onClick = onNext,
             )
         }
-    }
-}
-
-@Composable
-private fun DigitCell(char: Char?, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .height(88.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(CellBg)
-            .border(3.dp, if (char != null) Teal else CellBorder, RoundedCornerShape(18.dp)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text = char?.toString() ?: "", fontSize = 44.sp, fontWeight = FontWeight.ExtraBold, color = Teal)
     }
 }
 
