@@ -93,6 +93,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.bodyswitch.checkin.R
 import com.bodyswitch.checkin.data.api.dto.MemberCandidate
+import com.bodyswitch.checkin.ui.common.MemberCandidateList
 import com.bodyswitch.checkin.data.session.CheckinSettingsManager
 import com.bodyswitch.checkin.data.session.SessionManager
 import com.bodyswitch.checkin.ui.home.StaffCallState
@@ -708,28 +709,22 @@ private fun PhoneStep(
         Spacer(modifier = Modifier.height(28.dp))
         Text("휴대폰 번호를 입력해 주세요", fontSize = 42.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary)
         Spacer(modifier = Modifier.height(8.dp))
-        Text("전화번호 뒤 8자리를 입력하시면 됩니다", fontSize = 24.sp, fontWeight = FontWeight.Medium, color = TextMuted)
+        Text("전화번호 뒤 4자리를 입력하시면 됩니다", fontSize = 24.sp, fontWeight = FontWeight.Medium, color = TextMuted)
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        // 8자리 셀: 4 + 대시 + 4 (폭 비례로 어떤 태블릿에서도 맞게)
+        // 4자리 셀 (폭 비례로 어떤 태블릿에서도 맞게)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .widthIn(max = 520.dp)
+                .widthIn(max = 380.dp)
                 .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            repeat(4) { i -> DigitCell(char = uiState.digits.getOrNull(i), modifier = Modifier.weight(1f)) }
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 6.dp)
-                    .width(20.dp)
-                    .height(4.dp)
-                    .background(DashColor),
-            )
-            repeat(4) { i -> DigitCell(char = uiState.digits.getOrNull(i + 4), modifier = Modifier.weight(1f)) }
+            repeat(AccessRegistrationViewModel.PHONE_DIGITS) { i ->
+                DigitCell(char = uiState.digits.getOrNull(i), modifier = Modifier.weight(1f))
+            }
         }
 
         Spacer(modifier = Modifier.height(28.dp))
@@ -774,7 +769,7 @@ private fun PhoneStep(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        // 다음 버튼: 8자리 완료 시 활성
+        // 다음 버튼: 4자리 완료 시 활성
         if (uiState.isLoading) {
             CircularProgressIndicator(color = Teal, modifier = Modifier.size(48.dp))
         } else {
@@ -808,8 +803,7 @@ private fun DigitCell(char: Char?, modifier: Modifier = Modifier) {
 }
 
 // ─── 3. CONFIRM: 본인확인 (상품 보유 시에만) ───
-// ─── 2-1. SELECT_MEMBER: 같은 번호를 쓰는 회원이 여럿일 때 본인 선택 ───
-// 동명이인이 있을 수 있어 이름만으로는 못 고른다. 생년은 가리고 월일만 함께 보여준다.
+// ─── 2-1. SELECT_MEMBER: 같은 뒤 4자리를 쓰는 사람이 여럿일 때 본인 선택 ───
 @Composable
 private fun SelectMemberStep(
     candidates: List<MemberCandidate>,
@@ -834,49 +828,13 @@ private fun SelectMemberStep(
             return@FlowChrome
         }
 
-        Column(
+        MemberCandidateList(
+            candidates = candidates,
+            onSelect = onSelect,
             modifier = Modifier
-                .fillMaxWidth()
                 .widthIn(max = 760.dp)
                 .padding(horizontal = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
-        ) {
-            candidates.forEach { candidate ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(AvatarBg)
-                        .border(1.5.dp, CellBorder, RoundedCornerShape(24.dp))
-                        .clickable { onSelect(candidate.memberId) }
-                        .padding(horizontal = 28.dp, vertical = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        Icons.Default.Person,
-                        contentDescription = null,
-                        modifier = Modifier.size(52.dp),
-                        tint = AvatarIcon,
-                    )
-                    Spacer(modifier = Modifier.width(20.dp))
-                    Column {
-                        Text(
-                            candidate.name,
-                            fontSize = 40.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = TextPrimary,
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            "생년월일 ${candidate.maskedBirthDate}",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Teal,
-                        )
-                    }
-                }
-            }
-        }
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
         Text(
