@@ -47,6 +47,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,6 +59,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -408,6 +411,9 @@ fun MainCheckinScreen(
  *
  * 후보 수에 상한이 없어(더미번호 지점은 수십 명) 목록을 스크롤 가능하게 둔다.
  */
+// 후보 선택 화면에 개인정보가 뜬 채 방치되지 않도록, 조작이 없으면 번호 입력으로 되돌린다
+private const val CANDIDATE_IDLE_SECONDS = 10
+
 @Composable
 private fun CandidateSelectOverlay(
     candidates: List<MemberCandidate>,
@@ -415,11 +421,30 @@ private fun CandidateSelectOverlay(
     onSelect: (String) -> Unit,
     onCancel: () -> Unit,
 ) {
+    // 터치할 때마다 타이머를 되감고, 통신 중에는 세지 않는다.
+    var interactionTick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(interactionTick, isLoading) {
+        if (isLoading) return@LaunchedEffect
+        var remaining = CANDIDATE_IDLE_SECONDS
+        while (remaining > 0) {
+            delay(1000L)
+            remaining--
+        }
+        onCancel()
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.9f))
-            .clickable(enabled = false) {},
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        awaitPointerEvent(PointerEventPass.Initial)
+                        interactionTick++
+                    }
+                }
+            },
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -433,13 +458,6 @@ private fun CandidateSelectOverlay(
                 fontSize = 42.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "같은 뒤 4자리를 쓰는 분이 여러 명입니다",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Medium,
-                color = GrayText,
             )
             Spacer(modifier = Modifier.height(24.dp))
 

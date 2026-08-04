@@ -483,13 +483,6 @@ private fun CandidateOverlay(
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "같은 뒤 4자리를 쓰는 분이 여러 명입니다",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Medium,
-                color = GrayText,
-            )
             Spacer(modifier = Modifier.height(28.dp))
 
             if (isLoading) {
