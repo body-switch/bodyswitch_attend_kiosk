@@ -8,8 +8,11 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
-// 체크인앱 서버 주소. "dev" 가 붙어 있지만 운영 서버다 (AppModule.kt 주석 참조).
-val PROD_BASE_URL = "https://api-dev.bodyswitch.co.kr/"
+// 체크인앱 서버 주소.
+// 2026-08-04: api-dev.bodyswitch.co.kr(dev서버 116.44.106.81:8084) → 운영서버로 전환.
+// 운영 Apache 가 /kiosk 를 8097(blue)/8077(green) 로 프록시한다.
+// ⚠️ 경로 프리픽스 /kiosk 는 KioskApi 의 각 엔드포인트에 이미 들어 있다 (kiosk/api/v1/...).
+val PROD_BASE_URL = "https://api.bodyswitch.co.kr/"
 
 // local.properties 의 checkin.baseUrl (있으면 debug 빌드가 이 주소를 본다)
 val localBaseUrl: String? = run {

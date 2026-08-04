@@ -23,9 +23,10 @@ import javax.inject.Singleton
 object AppModule {
 
     // BuildConfig.BASE_URL 은 app/build.gradle.kts 에서 주입한다.
-    //  - release : https://api-dev.bodyswitch.co.kr/  (호스트명에 "dev"가 들어가지만 운영 서버다)
-    //  - debug   : 기본값은 release 와 동일. local.properties 의 checkin.baseUrl 로 로컬 서버를 볼 수 있다.
-    // ⚠️ api.bodyswitch.co.kr 은 admin 앱으로 라우팅되어 /kiosk/** 가 전부 403이다. 바꾸지 말 것.
+    //  - release : https://api.bodyswitch.co.kr/
+    //  - debug   : 기본값은 release 와 동일. local.properties 의 checkin.baseUrl 로 다른 서버를 볼 수 있다.
+    // 2026-08-04 이전에는 api-dev.bodyswitch.co.kr(dev서버 8084)를 봤다. 운영 Apache 에
+    // /kiosk → 8097 프록시가 추가되면서 운영으로 옮겼다 (그전엔 /kiosk 가 admin 으로 가서 403).
     private val BASE_URL = BuildConfig.BASE_URL
 
     @Provides
