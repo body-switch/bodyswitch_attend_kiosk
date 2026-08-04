@@ -117,33 +117,32 @@ class AccessRegistrationViewModel @Inject constructor(
         }
     }
 
-    // 전화번호 뒤 8자리로 회원 조회 후 상품 보유 여부에 따라 confirm / noproduct 분기.
-    // 같은 지점에 같은 번호를 쓰는 회원이 여럿이면 서버가 409로 후보를 준다 → selectMember 단계.
+    // 전화번호 뒤 4자리로 회원 조회 후 상품 보유 여부에 따라 confirm / noproduct 분기.
+    // 뒤 4자리가 겹치는 사람이 여럿이면 서버가 409로 후보를 준다 → selectMember 단계.
     fun submitPhone() {
         val phone = _uiState.value.digits
         if (phone.length != PHONE_DIGITS || _uiState.value.isLoading) return
 
-        val formatted = "010-${phone.substring(0, 4)}-${phone.substring(4)}"
-        loginAndProceed(formatted, memberId = null)
+        loginAndProceed(phone, candidateId = null)
     }
 
-    // 후보 선택 화면에서 본인을 고른 뒤 그 회원으로 다시 로그인한다
-    fun selectMember(memberId: String) {
+    // 후보 선택 화면에서 본인을 고른 뒤 그 후보로 다시 로그인한다
+    fun selectMember(candidateId: String) {
         val phone = pendingPhone ?: return
         if (_uiState.value.isLoading) return
-        loginAndProceed(phone, memberId = memberId)
+        loginAndProceed(phone, candidateId = candidateId)
     }
 
-    private fun loginAndProceed(formatted: String, memberId: String?) {
+    private fun loginAndProceed(last4: String, candidateId: String?) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val login = api.phoneLogin(
                     adminToken = sessionManager.token,
                     request = PhoneLoginRequest(
-                        phoneNumber = formatted,
+                        phoneLast4 = last4,
                         allowCandidates = true,
-                        memberId = memberId,
+                        candidateId = candidateId,
                     ),
                 )
 
@@ -182,7 +181,7 @@ class AccessRegistrationViewModel @Inject constructor(
                 if (e.code() == HTTP_CONFLICT) {
                     val candidates = parseCandidates(e)
                     if (candidates.isNotEmpty()) {
-                        pendingPhone = formatted
+                        pendingPhone = last4
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
@@ -321,6 +320,6 @@ class AccessRegistrationViewModel @Inject constructor(
     companion object {
         private const val TAG = "ACCESS_REG"
         private const val HTTP_CONFLICT = 409
-        const val PHONE_DIGITS = 8
+        const val PHONE_DIGITS = 4
     }
 }

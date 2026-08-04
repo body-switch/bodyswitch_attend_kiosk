@@ -211,7 +211,7 @@ fun SettingsScreen(
             CheckinOptionCard(
                 iconRes = R.drawable.ic_phone_check,
                 title = "번호 체크인",
-                subtitle = "전화번호 뒤 8자리를 입력해 인증하는 방식",
+                subtitle = "전화번호 뒤 4자리를 입력해 인증하는 방식",
                 isEnabled = phoneEnabled,
                 onClick = {
                     if (phoneEnabled && !qrEnabled) {

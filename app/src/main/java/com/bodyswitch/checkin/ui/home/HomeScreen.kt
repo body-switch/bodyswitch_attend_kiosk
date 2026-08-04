@@ -346,7 +346,7 @@ fun HomeScreen(
                         CheckinMethodCard(
                             painter = painterResource(id = R.drawable.ic_phone_check),
                             title = "번호 체크인",
-                            subtitle = "전화번호 뒤 8자리를 입력해 주세요",
+                            subtitle = "전화번호 뒤 4자리를 입력해 주세요",
                             backgroundColor = GreenCard,
                             onClick = onPhoneClick,
                         )

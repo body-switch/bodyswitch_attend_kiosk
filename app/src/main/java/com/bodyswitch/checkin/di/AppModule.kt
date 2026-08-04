@@ -22,10 +22,11 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
-    // 체크인앱의 운영 서버다. 호스트명에 "dev"가 들어가지만 개발 서버가 아니다.
-    // 릴리스 빌드도 이 주소를 쓴다 (buildType 분기 없음).
+    // BuildConfig.BASE_URL 은 app/build.gradle.kts 에서 주입한다.
+    //  - release : https://api-dev.bodyswitch.co.kr/  (호스트명에 "dev"가 들어가지만 운영 서버다)
+    //  - debug   : 기본값은 release 와 동일. local.properties 의 checkin.baseUrl 로 로컬 서버를 볼 수 있다.
     // ⚠️ api.bodyswitch.co.kr 은 admin 앱으로 라우팅되어 /kiosk/** 가 전부 403이다. 바꾸지 말 것.
-    private const val BASE_URL = "https://api-dev.bodyswitch.co.kr/"
+    private val BASE_URL = BuildConfig.BASE_URL
 
     @Provides
     @Singleton

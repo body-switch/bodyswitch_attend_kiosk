@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -45,6 +48,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import com.bodyswitch.checkin.R
+import com.bodyswitch.checkin.ui.common.MemberCandidateList
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -101,9 +105,12 @@ fun PhoneLoginScreen(
         uiState.token?.let { onLoginSuccess(it) }
     }
 
-    // 8자리 입력 완료 시 자동 로그인
+    // 4자리 입력 완료 시 자동 로그인
     LaunchedEffect(uiState.phoneNumber) {
-        if (uiState.phoneNumber.length == 8 && !uiState.isLoading) {
+        if (uiState.phoneNumber.length == PhoneLoginViewModel.PHONE_DIGITS &&
+            !uiState.isLoading &&
+            uiState.candidates.isEmpty()
+        ) {
             viewModel.login()
         }
     }
@@ -172,7 +179,7 @@ fun PhoneLoginScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "전화번호 뒤 8자리를 입력해 주세요",
+                                text = "전화번호 뒤 4자리를 입력해 주세요",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = GrayText,
@@ -206,12 +213,12 @@ fun PhoneLoginScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    // 8자리 입력 표시
+                    // 4자리 입력 표시
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        for (i in 0 until 8) {
+                        for (i in 0 until PhoneLoginViewModel.PHONE_DIGITS) {
                             val char = uiState.phoneNumber.getOrNull(i)
                             Box(
                                 modifier = Modifier
@@ -334,11 +341,13 @@ fun PhoneLoginScreen(
                                 .height(80.dp)
                                 .clip(RoundedCornerShape(99.dp))
                                 .background(
-                                    if (uiState.phoneNumber.length == 8) ActionKeyBg
+                                    if (uiState.phoneNumber.length == PhoneLoginViewModel.PHONE_DIGITS) ActionKeyBg
                                     else ActionKeyBg.copy(alpha = 0.4f)
                                 )
                                 .clickable {
-                                    if (uiState.phoneNumber.length == 8) viewModel.login()
+                                    if (uiState.phoneNumber.length == PhoneLoginViewModel.PHONE_DIGITS) {
+                                        viewModel.login()
+                                    }
                                 },
                             contentAlignment = Alignment.Center,
                         ) {
@@ -417,6 +426,16 @@ fun PhoneLoginScreen(
             }
         }
 
+        // 뒤 4자리가 겹칠 때 본인 선택
+        if (uiState.candidates.isNotEmpty()) {
+            CandidateOverlay(
+                candidates = uiState.candidates,
+                isLoading = uiState.isLoading,
+                onSelect = viewModel::selectCandidate,
+                onCancel = viewModel::clearCandidates,
+            )
+        }
+
         // 스낵바
         SnackbarHost(
             hostState = snackbarHostState,
@@ -433,12 +452,88 @@ fun PhoneLoginScreen(
     }
 }
 
+/**
+ * 같은 뒤 4자리를 쓰는 사람이 여럿일 때 본인을 고르는 오버레이.
+ *
+ * 후보 수에 상한이 없어(더미번호 지점은 수십 명) 목록을 스크롤 가능하게 둔다.
+ */
+@Composable
+private fun CandidateOverlay(
+    candidates: List<com.bodyswitch.checkin.data.api.dto.MemberCandidate>,
+    isLoading: Boolean,
+    onSelect: (String) -> Unit,
+    onCancel: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.88f))
+            .clickable(enabled = false) {},
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 48.dp, vertical = 40.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "본인을 선택해 주세요",
+                fontSize = 44.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "같은 뒤 4자리를 쓰는 분이 여러 명입니다",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Medium,
+                color = GrayText,
+            )
+            Spacer(modifier = Modifier.height(28.dp))
+
+            if (isLoading) {
+                CircularProgressIndicator(color = TealPrimary)
+                return@Column
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .widthIn(max = 760.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                MemberCandidateList(candidates = candidates, onSelect = onSelect)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(99.dp))
+                    .border(2.dp, Color.White, RoundedCornerShape(99.dp))
+                    .clickable { onCancel() }
+                    .padding(horizontal = 48.dp, vertical = 16.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "다시 입력",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                )
+            }
+        }
+    }
+}
+
 private fun appendDigit(
     digit: String,
     current: String,
     viewModel: PhoneLoginViewModel,
 ) {
-    if (current.length < 8) {
+    if (current.length < PhoneLoginViewModel.PHONE_DIGITS) {
         viewModel.onPhoneNumberChange(current + digit)
     }
 }
