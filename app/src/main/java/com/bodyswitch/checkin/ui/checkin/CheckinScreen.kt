@@ -103,6 +103,7 @@ private val Green = Color(0xFF4CAF50)
 fun CheckinScreen(
     onBack: () -> Unit,
     onCheckinComplete: () -> Unit,
+    onCheckoutComplete: () -> Unit = {},
     onEmployeeAttendType: () -> Unit = {},
     onRequireLogin: () -> Unit = {},
     centerName: String = "",
@@ -151,6 +152,9 @@ fun CheckinScreen(
     }
     LaunchedEffect(uiState.checkinDone) {
         if (uiState.checkinDone) onCheckinComplete()
+    }
+    LaunchedEffect(uiState.checkoutDone) {
+        if (uiState.checkoutDone) onCheckoutComplete()
     }
     LaunchedEffect(uiState.isEmployee) {
         if (uiState.isEmployee) {
@@ -267,6 +271,22 @@ fun CheckinScreen(
                     ) {
                         CircularProgressIndicator(color = Primary)
                     }
+                }
+
+                // 당일 입장 이력이 있는 회원 → 재입장인지 퇴실인지 먼저 고른다
+                uiState.needsAttendChoice && uiState.member != null -> {
+                    MemberAttendTypeScreen(
+                        memberName = uiState.member!!.name,
+                        onReentry = {
+                            lastInteraction = System.currentTimeMillis()
+                            viewModel.confirmReentry()
+                        },
+                        onCheckout = {
+                            lastInteraction = System.currentTimeMillis()
+                            viewModel.checkout()
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
 
                 uiState.member == null -> {

@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.bodyswitch.checkin.data.api.KioskApi
 import com.bodyswitch.checkin.data.api.dto.AttendRequest
 import com.bodyswitch.checkin.data.api.dto.CheckinRequest
+import com.bodyswitch.checkin.data.api.dto.CheckoutRequest
 import com.bodyswitch.checkin.data.api.dto.ErrorResponse
 import com.bodyswitch.checkin.data.api.dto.OpenDoorRequest
 import com.bodyswitch.checkin.data.api.dto.ReentryRequest
@@ -51,6 +52,10 @@ data class CheckinUiState(
     val reservationsLoaded: Boolean = false,
     val noReservations: Boolean = false,
     val selectedReservationId: Long? = null,
+    // 당일 입장 이력이 있는 회원 → [재입장]/[퇴실] 선택 대기
+    val needsAttendChoice: Boolean = false,
+    val reentryMessage: String? = null,
+    val checkoutDone: Boolean = false,
     // 직원 → 선택 화면으로 이동
     val isEmployee: Boolean = false,
     // 지점 로그인 안 됨(branchId 없음) → 로그인 화면으로
@@ -207,10 +212,15 @@ class CheckinViewModel @Inject constructor(
                 passes = passes,
             )
 
-            // 당일 출석/입장 이력이 있으면 이용권/예약 선택 없이 바로 무차감 재입장
+            // 당일 출석/입장 이력이 있으면 재입장인지 퇴실인지 회원에게 묻는다.
+            // 퇴실 대상은 곧 당일 입장 이력이 있는 회원이라, 이 분기가 유일하게 퇴실이 성립하는 지점이다.
             if (response.reentry?.eligible == true) {
-                _uiState.value = CheckinUiState(isLoading = true, member = member)
-                performReentry(response.reentry.message)
+                _uiState.value = CheckinUiState(
+                    isLoading = false,
+                    member = member,
+                    needsAttendChoice = true,
+                    reentryMessage = response.reentry.message,
+                )
                 return
             }
 
@@ -381,6 +391,56 @@ class CheckinViewModel @Inject constructor(
                 isLoading = false,
                 error = failure.userMessage,
             )
+        }
+    }
+
+    /**
+     * [재입장]/[퇴실] 선택에서 재입장을 고른 경우.
+     */
+    fun confirmReentry() {
+        val state = _uiState.value
+        if (!state.needsAttendChoice) return
+        viewModelScope.launch {
+            _uiState.value = state.copy(isLoading = true, needsAttendChoice = false)
+            performReentry(state.reentryMessage)
+        }
+    }
+
+    /**
+     * [재입장]/[퇴실] 선택에서 퇴실을 고른 경우. 당일 입장 기록에 퇴실 시각을 남긴다.
+     */
+    fun checkout() {
+        val state = _uiState.value
+        if (!state.needsAttendChoice) return
+        viewModelScope.launch {
+            val bearerToken = "Bearer ${token ?: return@launch}"
+            val branchId = sessionManager.branchId ?: return@launch
+            _uiState.value = state.copy(isLoading = true, needsAttendChoice = false)
+            val startedAt = SystemClock.elapsedRealtime()
+
+            try {
+                val response = api.checkout(
+                    authorization = bearerToken,
+                    adminToken = sessionManager.token,
+                    request = CheckoutRequest(branchId = branchId),
+                )
+                Log.d("CHECKIN", "퇴실 처리 성공: ${response.message}")
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    checkoutDone = true,
+                    checkinMessage = response.message,
+                )
+            } catch (e: Exception) {
+                val failure = e.classify("퇴실 처리에 실패했습니다")
+                Log.e("CHECKIN", "퇴실 처리 실패: ${failure.userMessage}", e)
+                reportFailure(CheckinFailureReporter.Step.CHECKOUT, failure, startedAt)
+                // 실패해도 선택 화면으로 되돌려 재시도·재입장을 고를 수 있게 한다
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    needsAttendChoice = true,
+                    error = failure.userMessage,
+                )
+            }
         }
     }
 

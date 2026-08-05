@@ -87,6 +87,7 @@ class CheckinFailureReporter @Inject constructor(
         RESERVATIONS,
         ATTEND,
         REENTRY,
+        CHECKOUT,
         CHECKIN,
         OPEN_DOOR,
     }
