@@ -119,10 +119,13 @@ fun CheckinScreen(
     var inactivityCountdown by remember { mutableIntStateOf(5) }
     var isNavigatingBack by remember { mutableStateOf(false) }
 
-    LaunchedEffect(lastInteraction) {
+    // 선택 화면은 읽고 고르는 시간이 필요하다. 직원 출퇴근 선택 화면과 같은 10초를 준다.
+    val inactivityDelayMillis = if (uiState.needsAttendChoice) 10_000L else 5_000L
+
+    LaunchedEffect(lastInteraction, inactivityDelayMillis) {
         showInactivityWarning = false
         inactivityCountdown = 5
-        delay(5_000L)
+        delay(inactivityDelayMillis)
         if (!isActive) return@LaunchedEffect
         showInactivityWarning = true
         while (inactivityCountdown > 0 && isActive) {
@@ -273,13 +276,14 @@ fun CheckinScreen(
                     }
                 }
 
-                // 당일 입장 이력이 있는 회원 → 재입장인지 퇴실인지 먼저 고른다
+                // 당일 미마감 입장 기록이 있는 회원 → 계속 이용할지 퇴실할지 먼저 고른다
                 uiState.needsAttendChoice && uiState.member != null -> {
                     MemberAttendTypeScreen(
                         memberName = uiState.member!!.name,
-                        onReentry = {
+                        canReentry = uiState.canReentry,
+                        onContinue = {
                             lastInteraction = System.currentTimeMillis()
-                            viewModel.confirmReentry()
+                            viewModel.continueEntry()
                         },
                         onCheckout = {
                             lastInteraction = System.currentTimeMillis()

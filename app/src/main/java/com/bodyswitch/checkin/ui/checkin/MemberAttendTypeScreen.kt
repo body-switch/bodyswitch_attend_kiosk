@@ -38,20 +38,23 @@ private val ChoiceCardBg = Color(0xFF262626)
 private val ChoiceTextMuted = Color(0xFFA6A6A6)
 
 /**
- * 당일 입장 이력이 있는 회원에게 [재입장]/[퇴실] 중 하나를 고르게 하는 화면.
+ * 당일 미마감 입장 기록이 있는 회원에게 계속 이용할지 퇴실할지 고르게 하는 화면.
  *
  * 첫 입장 회원은 퇴실할 대상이 없으므로 이 화면을 거치지 않고 기존 이용권 선택 흐름으로 간다.
+ *
+ * @param canReentry 무차감 재입장 자격. 없으면 왼쪽 버튼이 기존 이용권 선택 흐름으로 간다.
  */
 @Composable
 fun MemberAttendTypeScreen(
     memberName: String,
-    onReentry: () -> Unit,
+    canReentry: Boolean,
+    onContinue: () -> Unit,
     onCheckout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier
-            .fillMaxSize()
+            .fillMaxWidth()
             .padding(horizontal = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -67,7 +70,7 @@ fun MemberAttendTypeScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "오늘 이미 입장하셨습니다.\n어떤 처리를 하시겠어요?",
+            text = "오늘 이용 중이십니다.\n어떤 처리를 하시겠어요?",
             fontSize = 32.sp,
             fontWeight = FontWeight.Medium,
             color = ChoiceTextMuted,
@@ -81,11 +84,11 @@ fun MemberAttendTypeScreen(
             horizontalArrangement = Arrangement.spacedBy(32.dp),
         ) {
             ChoiceCard(
-                label = "재입장",
-                description = "차감 없이 다시 입장",
+                label = if (canReentry) "재입장" else "계속 이용",
+                description = if (canReentry) "차감 없이 다시 입장" else "이용권을 선택합니다",
                 icon = Icons.AutoMirrored.Filled.Login,
                 accent = ChoicePrimary,
-                onClick = onReentry,
+                onClick = onContinue,
                 modifier = Modifier.weight(1f),
             )
             ChoiceCard(

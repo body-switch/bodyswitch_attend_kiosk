@@ -52,8 +52,10 @@ data class CheckinUiState(
     val reservationsLoaded: Boolean = false,
     val noReservations: Boolean = false,
     val selectedReservationId: Long? = null,
-    // 당일 입장 이력이 있는 회원 → [재입장]/[퇴실] 선택 대기
+    // 당일 미마감 입장 기록이 있는 회원 → [계속 이용|재입장]/[퇴실] 선택 대기
     val needsAttendChoice: Boolean = false,
+    // 무차감 재입장 자격. 없으면 "계속 이용"이 기존 이용권 선택 흐름으로 간다.
+    val canReentry: Boolean = false,
     val reentryMessage: String? = null,
     val checkoutDone: Boolean = false,
     // 직원 → 선택 화면으로 이동
@@ -212,15 +214,27 @@ class CheckinViewModel @Inject constructor(
                 passes = passes,
             )
 
-            // 당일 출석/입장 이력이 있으면 재입장인지 퇴실인지 회원에게 묻는다.
-            // 퇴실 대상은 곧 당일 입장 이력이 있는 회원이라, 이 분기가 유일하게 퇴실이 성립하는 지점이다.
-            if (response.reentry?.eligible == true) {
+            val canReentry = response.reentry?.eligible == true
+
+            // 당일 미마감 입장 기록이 있으면 계속 이용할지 퇴실할지 묻는다.
+            // 재입장 자격(reentry)으로 묻지 않는 이유는 그 판정이 키오스크 입장과
+            // "수업 종료 전" 레슨만 보기 때문이다. 안면인식 입장자와 수업이 끝난 회원,
+            // 즉 실제로 나가려는 회원이 그 조건에서 빠진다.
+            if (response.checkoutAvailable) {
                 _uiState.value = CheckinUiState(
                     isLoading = false,
                     member = member,
                     needsAttendChoice = true,
-                    reentryMessage = response.reentry.message,
+                    canReentry = canReentry,
+                    reentryMessage = response.reentry?.message,
                 )
+                return
+            }
+
+            // 미마감 기록이 없는데 재입장 자격만 있는 경우(출석 행 누락 등)는 기존대로 자동 재입장
+            if (canReentry) {
+                _uiState.value = CheckinUiState(isLoading = true, member = member)
+                performReentry(response.reentry?.message)
                 return
             }
 
@@ -395,27 +409,61 @@ class CheckinViewModel @Inject constructor(
     }
 
     /**
-     * [재입장]/[퇴실] 선택에서 재입장을 고른 경우.
+     * 선택 화면에서 퇴실이 아닌 쪽을 고른 경우.
+     *
+     * <p>재입장 자격이 있으면 무차감 재입장, 없으면 기존 이용권 선택 흐름으로 보낸다.
      */
-    fun confirmReentry() {
+    fun continueEntry() {
         val state = _uiState.value
         if (!state.needsAttendChoice) return
-        viewModelScope.launch {
+        val member = state.member ?: return
+
+        if (state.canReentry) {
             _uiState.value = state.copy(isLoading = true, needsAttendChoice = false)
-            performReentry(state.reentryMessage)
+            viewModelScope.launch { performReentry(state.reentryMessage, restoreChoiceOnFailure = true) }
+            return
         }
+
+        val activeTickets = member.tickets.filter { it.status != "INACTIVE" }
+        val activePasses = member.passes.filter { it.status != "INACTIVE" }
+
+        // 이용권(기간권)만 있으면 선택할 게 없으므로 자동 체크인 (loadTickets의 기존 분기와 동일)
+        if (activeTickets.isEmpty() && activePasses.isNotEmpty()) {
+            val pass = activePasses.first()
+            _uiState.value = state.copy(
+                isLoading = true,
+                needsAttendChoice = false,
+                selectedTicketId = pass.id,
+                selectedTicketType = TicketType.COURSE_PASS,
+                deductCount = 0,
+            )
+            viewModelScope.launch { performCheckin(isAuto = true) }
+            return
+        }
+
+        _uiState.value = state.copy(isLoading = false, needsAttendChoice = false)
     }
 
     /**
-     * [재입장]/[퇴실] 선택에서 퇴실을 고른 경우. 당일 입장 기록에 퇴실 시각을 남긴다.
+     * 선택 화면에서 퇴실을 고른 경우. 당일 입장 기록에 퇴실 시각을 남긴다.
      */
     fun checkout() {
         val state = _uiState.value
         if (!state.needsAttendChoice) return
+
+        val currentToken = token
+        val branchId = sessionManager.branchId
+        if (currentToken == null || branchId == null) {
+            // 여기서 조용히 빠지면 버튼이 먹통이 된 것처럼 보인다
+            _uiState.value = state.copy(error = "퇴실 처리에 실패했습니다")
+            return
+        }
+
+        // 중복 탭 방어. 상태 전환을 launch 밖에서 먼저 끝내 두 번째 탭이 위 가드에 걸리게 한다.
+        _uiState.value = state.copy(isLoading = true, needsAttendChoice = false)
+
         viewModelScope.launch {
-            val bearerToken = "Bearer ${token ?: return@launch}"
-            val branchId = sessionManager.branchId ?: return@launch
-            _uiState.value = state.copy(isLoading = true, needsAttendChoice = false)
+            val bearerToken = "Bearer $currentToken"
             val startedAt = SystemClock.elapsedRealtime()
 
             try {
@@ -447,7 +495,10 @@ class CheckinViewModel @Inject constructor(
     /**
      * 무차감 재입장 처리. 당일 출석 회원을 차감/만료 없이 입장시키고 출입문을 연다.
      */
-    private suspend fun performReentry(reentryMessage: String?) {
+    private suspend fun performReentry(
+        reentryMessage: String?,
+        restoreChoiceOnFailure: Boolean = false,
+    ) {
         val bearerToken = "Bearer ${token ?: return}"
         val branchId = sessionManager.branchId ?: return
         val startedAt = SystemClock.elapsedRealtime()
@@ -472,8 +523,11 @@ class CheckinViewModel @Inject constructor(
             val failure = e.classify("재입장 처리에 실패했습니다")
             Log.e("CHECKIN", "재입장 처리 실패: ${failure.userMessage}", e)
             reportFailure(CheckinFailureReporter.Step.REENTRY, failure, startedAt)
+            // 선택 화면에서 온 실패는 선택 화면으로 되돌린다. 그냥 두면 무차감 재입장 대상 회원이
+            // 차감이 일어나는 이용권 선택 화면으로 떨어진다.
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
+                needsAttendChoice = restoreChoiceOnFailure,
                 error = failure.userMessage,
             )
         }
