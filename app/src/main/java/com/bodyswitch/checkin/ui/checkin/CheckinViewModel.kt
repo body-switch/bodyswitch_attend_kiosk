@@ -43,7 +43,6 @@ data class CheckinUiState(
     val selectedTicketIsPass: Boolean = false,
     val deductCount: Int = 1,
     val checkinDone: Boolean = false,
-    val autoCheckinDone: Boolean = false,
     val checkinMessage: String? = null,
     val error: String? = null,
     // 예약 관련
@@ -245,22 +244,33 @@ class CheckinViewModel @Inject constructor(
                 return
             }
 
-            val activeTickets = tickets.filter { it.status != "INACTIVE" }
-            val activePasses = passes.filter { it.status != "INACTIVE" }
-
-            // 이용권(기간권)만 있으면 자동 체크인
-            if (activeTickets.isEmpty() && activePasses.isNotEmpty()) {
-                val pass = activePasses.first()
-                _uiState.value = CheckinUiState(
-                    isLoading = true,
-                    member = member,
-                    selectedTicketId = pass.id,
-                    selectedTicketType = TicketType.COURSE_PASS,
-                    deductCount = 0,
-                )
-                performCheckin(isAuto = true)
-                return
-            }
+            // ── [비활성] 이용권 전용 회원 자동 체크인 ──────────────────────────────
+            // 이용권만 가진 회원을 선택 화면 없이 바로 체크인시키던 분기. 요청으로 꺼뒀고
+            // 되살릴 수 있게 남긴다. 주석을 풀면 그대로 동작한다.
+            //
+            // 껐던 이유와, 되살릴 때 같이 볼 것:
+            //   1) activeTickets 에 일일권도 들어간다. 유효 일일권이 한 장이라도 있으면
+            //      이 분기에 걸리지 않는다.
+            //   2) 이용권이 여러 개면 first() 로 임의 선택한다. 서버가 정렬해서 주지 않는다.
+            //   3) 만료일이 아닌 status 만 본다. 만료 배치가 놓쳐 ACTIVE 로 남은 이용권도 통과한다.
+            //   4) 예전에는 autoCheckinDone 으로 완료 화면을 건너뛰어 회원이 성공 확인을
+            //      못 봤다. 지금 풀면 performCheckin() 이 checkinDone 을 세워 완료 화면까지 간다.
+            //
+            // val activeTickets = tickets.filter { it.status != "INACTIVE" }
+            // val activePasses = passes.filter { it.status != "INACTIVE" }
+            // if (activeTickets.isEmpty() && activePasses.isNotEmpty()) {
+            //     val pass = activePasses.first()
+            //     _uiState.value = CheckinUiState(
+            //         isLoading = true,
+            //         member = member,
+            //         selectedTicketId = pass.id,
+            //         selectedTicketType = TicketType.COURSE_PASS,
+            //         deductCount = 0,
+            //     )
+            //     performCheckin()
+            //     return
+            // }
+            // ──────────────────────────────────────────────────────────────────
 
             _uiState.value = CheckinUiState(
                 isLoading = false,
@@ -372,7 +382,7 @@ class CheckinViewModel @Inject constructor(
                 // 예약이 선택된 경우 출석 처리
                 state.selectedReservationId != null -> performAttend()
                 // 이용권 또는 PASS형 체험권은 예약 없이 체크인 가능
-                state.selectedTicketIsPass -> performCheckin(isAuto = false)
+                state.selectedTicketIsPass -> performCheckin()
                 // 예약 차감형 수강권/체험권은 예약 선택 필수 → 방어적으로 무시
                 else -> return@launch
             }
@@ -423,7 +433,6 @@ class CheckinViewModel @Inject constructor(
     fun continueEntry() {
         val state = _uiState.value
         if (!state.needsAttendChoice) return
-        val member = state.member ?: return
 
         if (state.canReentry) {
             _uiState.value = state.copy(isLoading = true, needsAttendChoice = false)
@@ -431,22 +440,26 @@ class CheckinViewModel @Inject constructor(
             return
         }
 
-        val activeTickets = member.tickets.filter { it.status != "INACTIVE" }
-        val activePasses = member.passes.filter { it.status != "INACTIVE" }
-
-        // 이용권(기간권)만 있으면 선택할 게 없으므로 자동 체크인 (loadTickets의 기존 분기와 동일)
-        if (activeTickets.isEmpty() && activePasses.isNotEmpty()) {
-            val pass = activePasses.first()
-            _uiState.value = state.copy(
-                isLoading = true,
-                needsAttendChoice = false,
-                selectedTicketId = pass.id,
-                selectedTicketType = TicketType.COURSE_PASS,
-                deductCount = 0,
-            )
-            viewModelScope.launch { performCheckin(isAuto = true) }
-            return
-        }
+        // ── [비활성] 이용권 전용 회원 자동 체크인 ──────────────────────────────
+        // loadTickets 의 같은 분기와 한 쌍이다. 되살릴 때는 반드시 둘 다 푼다.
+        // 한쪽만 풀면 진입 경로에 따라 동작이 갈린다.
+        //
+        // val member = state.member ?: return
+        // val activeTickets = member.tickets.filter { it.status != "INACTIVE" }
+        // val activePasses = member.passes.filter { it.status != "INACTIVE" }
+        // if (activeTickets.isEmpty() && activePasses.isNotEmpty()) {
+        //     val pass = activePasses.first()
+        //     _uiState.value = state.copy(
+        //         isLoading = true,
+        //         needsAttendChoice = false,
+        //         selectedTicketId = pass.id,
+        //         selectedTicketType = TicketType.COURSE_PASS,
+        //         deductCount = 0,
+        //     )
+        //     viewModelScope.launch { performCheckin() }
+        //     return
+        // }
+        // ──────────────────────────────────────────────────────────────────
 
         _uiState.value = state.copy(isLoading = false, needsAttendChoice = false)
     }
@@ -540,7 +553,7 @@ class CheckinViewModel @Inject constructor(
         }
     }
 
-    private suspend fun performCheckin(isAuto: Boolean) {
+    private suspend fun performCheckin() {
         val state = _uiState.value
         val ticketId = state.selectedTicketId ?: return
         val ticketType = state.selectedTicketType ?: return
@@ -566,8 +579,7 @@ class CheckinViewModel @Inject constructor(
                 Log.d("CHECKIN", "체크인 성공: ${body?.message}")
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    checkinDone = !isAuto,
-                    autoCheckinDone = isAuto,
+                    checkinDone = true,
                     checkinMessage = body?.message,
                 )
                 openDoorIfEnabled()

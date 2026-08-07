@@ -167,12 +167,6 @@ fun CheckinScreen(
     LaunchedEffect(uiState.requireLogin) {
         if (uiState.requireLogin) onRequireLogin()
     }
-    LaunchedEffect(uiState.autoCheckinDone) {
-        if (uiState.autoCheckinDone && !isNavigatingBack) {
-            isNavigatingBack = true
-            onBack()
-        }
-    }
 
     val now = Date(currentTime)
     val calendar = Calendar.getInstance().apply { time = now }
