@@ -81,6 +81,7 @@ fun SettingsScreen(
     var qrEnabled by remember { mutableStateOf(checkinSettingsManager.qrCheckinEnabled) }
     var phoneEnabled by remember { mutableStateOf(checkinSettingsManager.phoneCheckinEnabled) }
     var staffPhone by remember { mutableStateOf(checkinSettingsManager.staffPhoneNumber) }
+    var hideExpired by remember { mutableStateOf(checkinSettingsManager.hideExpiredTicketsEnabled) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showSaveDialog by remember { mutableStateOf(false) }
@@ -224,6 +225,32 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
 
+            // ── 이용권 표시 ──
+            Text(
+                text = "이용권 표시",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TealPrimary,
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "체크인 화면에 표시할 이용권 범위를 선택하세요",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = GrayText,
+            )
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            PlainToggleCard(
+                title = "만료 이용권 숨기기",
+                subtitle = "사용 중인 수강권·이용권만 표시합니다 (사용 가능한 것이 없으면 만료된 것도 표시)",
+                isEnabled = hideExpired,
+                onClick = { hideExpired = !hideExpired },
+            )
+
+            Spacer(modifier = Modifier.height(48.dp))
+
             // ── 직원 연락처 ──
             Text(
                 text = "직원 연락처",
@@ -334,6 +361,7 @@ fun SettingsScreen(
                 checkinSettingsManager.qrCheckinEnabled = qrEnabled
                 checkinSettingsManager.phoneCheckinEnabled = phoneEnabled
                 checkinSettingsManager.staffPhoneNumber = staffPhone
+                checkinSettingsManager.hideExpiredTicketsEnabled = hideExpired
 
                 // 출입문 설정: 연동 지점 + 토글 ON + 선택된 도어가 있을 때만 활성 저장
                 val canUseDoor = doorState.connected && doorState.doors.isNotEmpty()
@@ -491,6 +519,57 @@ private fun DoorToggleCard(isEnabled: Boolean, onClick: () -> Unit) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "체크인 성공 시 선택한 출입문을 1회 열어줍니다",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = GrayText,
+            )
+        }
+
+        Spacer(modifier = Modifier.width(24.dp))
+
+        if (isEnabled) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(TealPrimary),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
+            }
+        } else {
+            Box(modifier = Modifier.size(40.dp).border(2.dp, GrayText, RoundedCornerShape(6.dp)))
+        }
+    }
+}
+
+/** 아이콘 없는 단순 체크 토글 카드. */
+@Composable
+private fun PlainToggleCard(
+    title: String,
+    subtitle: String,
+    isEnabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (isEnabled) TealCardBg else DarkCard)
+            .clickable { onClick() }
+            .padding(24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = subtitle,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 color = GrayText,

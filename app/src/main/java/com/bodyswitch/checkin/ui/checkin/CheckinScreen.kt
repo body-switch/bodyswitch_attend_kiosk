@@ -326,6 +326,13 @@ fun CheckinScreen(
                     val activePasses = member.passes.filter { it.status != "INACTIVE" }
                     val expiredPasses = member.passes.filter { it.status == "INACTIVE" }
 
+                    // 만료 숨김 설정이 켜져 있어도, 사용 가능한 이용권이 하나도 없으면
+                    // 화면이 비어버리므로 만료된 것이라도 보여준다.
+                    val hasAnyActive = activeTickets.isNotEmpty() ||
+                        activePassTrials.isNotEmpty() ||
+                        activePasses.isNotEmpty()
+                    val showExpired = !viewModel.hideExpiredTickets || !hasAnyActive
+
                     val selectedReservation = uiState.reservations.find { it.reservationId == uiState.selectedReservationId }
                     val canCheckin = when {
                         // 이용권 또는 PASS형 체험권은 예약 없이 바로 체크인 가능
@@ -530,7 +537,7 @@ fun CheckinScreen(
                         }
 
                         // 만료된 수강권
-                        if (expiredTickets.isNotEmpty()) {
+                        if (showExpired && expiredTickets.isNotEmpty()) {
                             SectionHeader(title = "만료된 수강권", count = expiredTickets.size, countColor = TextMuted)
                             Spacer(modifier = Modifier.height(12.dp))
                             expiredTickets.chunked(cardColumns).forEach { row ->
@@ -550,7 +557,7 @@ fun CheckinScreen(
                         }
 
                         // 만료된 이용권 (이용권 + PASS형 체험권)
-                        if (expiredPasses.isNotEmpty() || expiredPassTrials.isNotEmpty()) {
+                        if (showExpired && (expiredPasses.isNotEmpty() || expiredPassTrials.isNotEmpty())) {
                             SectionHeader(
                                 title = "만료된 이용권",
                                 count = expiredPasses.size + expiredPassTrials.size,

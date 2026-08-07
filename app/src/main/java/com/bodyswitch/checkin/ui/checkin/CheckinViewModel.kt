@@ -85,6 +85,9 @@ class CheckinViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(CheckinUiState())
     val uiState: StateFlow<CheckinUiState> = _uiState.asStateFlow()
 
+    /** 만료 이용권 숨김 여부(설정 화면에서 저장하는 기기 로컬 값). */
+    val hideExpiredTickets: Boolean = settingsManager.hideExpiredTicketsEnabled
+
     private var token: String? = passedToken
     private val checkInMethod: String = if (qrData != null) "QR" else "PHONE"
 
