@@ -61,6 +61,7 @@ private val ScreenGrayText = Color(0xFFA6A6A6)
 fun CheckinCompleteScreen(
     onScanAgain: () -> Unit,
     centerName: String = "",
+    title: String = "체크인 완료",
 ) {
     var countdown by remember { mutableIntStateOf(3) }
     var visible by remember { mutableStateOf(false) }
@@ -200,7 +201,7 @@ fun CheckinCompleteScreen(
             Spacer(modifier = Modifier.height(20.dp))
 
             Text(
-                text = "체크인 완료",
+                text = title,
                 fontSize = 50.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = TealPrimary,

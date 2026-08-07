@@ -78,6 +78,20 @@ data class ReentryResponse(
     val untilTime: String?,
 )
 
+// 퇴실 (당일 입장 기록의 퇴실 시각 기록)
+@JsonClass(generateAdapter = true)
+data class CheckoutRequest(
+    val branchId: Long,
+)
+
+@JsonClass(generateAdapter = true)
+data class CheckoutResponse(
+    val memberName: String?,
+    val startTime: String?,
+    val endTime: String?,
+    val message: String?,
+)
+
 // 예약 출석
 @JsonClass(generateAdapter = true)
 data class AttendRequest(

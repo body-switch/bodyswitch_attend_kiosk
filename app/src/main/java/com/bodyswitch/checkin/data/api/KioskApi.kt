@@ -11,6 +11,8 @@ import com.bodyswitch.checkin.data.api.dto.CheckinHistoryResponse
 import com.bodyswitch.checkin.data.api.dto.AttendRequest
 import com.bodyswitch.checkin.data.api.dto.AttendResponse
 import com.bodyswitch.checkin.data.api.dto.CheckinRequest
+import com.bodyswitch.checkin.data.api.dto.CheckoutRequest
+import com.bodyswitch.checkin.data.api.dto.CheckoutResponse
 import com.bodyswitch.checkin.data.api.dto.CheckinResponse
 import com.bodyswitch.checkin.data.api.dto.DoorListResponse
 import com.bodyswitch.checkin.data.api.dto.FaceRegistrationRequest
@@ -127,6 +129,14 @@ interface KioskApi {
         @Header("X-Admin-Token") adminToken: String?,
         @Body request: AttendRequest,
     ): AttendResponse
+
+    // 퇴실 (당일 입장 기록의 퇴실 시각 기록)
+    @POST("kiosk/api/v1/checkin/checkout")
+    suspend fun checkout(
+        @Header("Authorization") authorization: String,
+        @Header("X-Admin-Token") adminToken: String?,
+        @Body request: CheckoutRequest,
+    ): CheckoutResponse
 
     // 무차감 재입장 (당일 출석 회원)
     @POST("kiosk/api/v1/checkin/reentry")

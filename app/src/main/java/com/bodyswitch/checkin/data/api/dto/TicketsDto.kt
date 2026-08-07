@@ -11,6 +11,8 @@ data class TicketsResponse(
     val coursePasses: List<CoursePassDto>? = null,
     // 무차감 재입장 정보. eligible=true면 이용권/예약 선택 없이 바로 재입장 처리.
     val reentry: ReentryInfo? = null,
+    // 당일 이 지점에 아직 마감되지 않은 입장 기록이 있으면 true. 안면인식 입장도 포함된다.
+    val checkoutAvailable: Boolean = false,
 )
 
 // 당일 출석/입장 이력이 있는 회원의 무차감 재입장 정보

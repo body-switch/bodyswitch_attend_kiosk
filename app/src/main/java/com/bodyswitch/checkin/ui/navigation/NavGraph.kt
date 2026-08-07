@@ -28,6 +28,7 @@ object Routes {
     const val CHECKIN_QR = "checkin_qr/{qrData}"
     const val CHECKIN_TOKEN = "checkin_token/{token}"
     const val CHECKIN_COMPLETE = "checkin_complete"
+    const val CHECKOUT_COMPLETE = "checkout_complete"
     const val EMPLOYEE_ATTEND_TYPE = "employee_attend_type"
     const val EMPLOYEE_CHECKIN_COMPLETE = "employee_checkin_complete/{name}/{time}/{count}/{exitCount}/{attendType}"
     const val HISTORY = "history"
@@ -129,6 +130,11 @@ fun NavGraph(sessionManager: SessionManager, checkinSettingsManager: CheckinSett
                         popUpTo(Routes.HOME) { inclusive = false }
                     }
                 },
+                onCheckoutComplete = {
+                    navController.navigate(Routes.CHECKOUT_COMPLETE) {
+                        popUpTo(Routes.HOME) { inclusive = false }
+                    }
+                },
                 onEmployeeAttendType = {
                     navController.navigate(Routes.EMPLOYEE_ATTEND_TYPE) {
                         popUpTo(Routes.HOME) { inclusive = false }
@@ -151,6 +157,11 @@ fun NavGraph(sessionManager: SessionManager, checkinSettingsManager: CheckinSett
                 onBack = { navController.popBackStack() },
                 onCheckinComplete = {
                     navController.navigate(Routes.CHECKIN_COMPLETE) {
+                        popUpTo(Routes.HOME) { inclusive = false }
+                    }
+                },
+                onCheckoutComplete = {
+                    navController.navigate(Routes.CHECKOUT_COMPLETE) {
                         popUpTo(Routes.HOME) { inclusive = false }
                     }
                 },
@@ -205,6 +216,14 @@ fun NavGraph(sessionManager: SessionManager, checkinSettingsManager: CheckinSett
             CheckinCompleteScreen(
                 onScanAgain = { navController.popBackStack(Routes.HOME, inclusive = false) },
                 centerName = sessionManager.businessName ?: sessionManager.branchName ?: "",
+            )
+        }
+
+        composable(Routes.CHECKOUT_COMPLETE) {
+            CheckinCompleteScreen(
+                onScanAgain = { navController.popBackStack(Routes.HOME, inclusive = false) },
+                centerName = sessionManager.businessName ?: sessionManager.branchName ?: "",
+                title = "퇴실 완료",
             )
         }
 

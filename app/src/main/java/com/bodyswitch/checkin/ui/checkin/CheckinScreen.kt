@@ -103,6 +103,7 @@ private val Green = Color(0xFF4CAF50)
 fun CheckinScreen(
     onBack: () -> Unit,
     onCheckinComplete: () -> Unit,
+    onCheckoutComplete: () -> Unit = {},
     onEmployeeAttendType: () -> Unit = {},
     onRequireLogin: () -> Unit = {},
     centerName: String = "",
@@ -118,10 +119,13 @@ fun CheckinScreen(
     var inactivityCountdown by remember { mutableIntStateOf(5) }
     var isNavigatingBack by remember { mutableStateOf(false) }
 
-    LaunchedEffect(lastInteraction) {
+    // 선택 화면은 읽고 고르는 시간이 필요하다. 직원 출퇴근 선택 화면과 같은 10초를 준다.
+    val inactivityDelayMillis = if (uiState.needsAttendChoice) 10_000L else 5_000L
+
+    LaunchedEffect(lastInteraction, inactivityDelayMillis) {
         showInactivityWarning = false
         inactivityCountdown = 5
-        delay(5_000L)
+        delay(inactivityDelayMillis)
         if (!isActive) return@LaunchedEffect
         showInactivityWarning = true
         while (inactivityCountdown > 0 && isActive) {
@@ -151,6 +155,9 @@ fun CheckinScreen(
     }
     LaunchedEffect(uiState.checkinDone) {
         if (uiState.checkinDone) onCheckinComplete()
+    }
+    LaunchedEffect(uiState.checkoutDone) {
+        if (uiState.checkoutDone) onCheckoutComplete()
     }
     LaunchedEffect(uiState.isEmployee) {
         if (uiState.isEmployee) {
@@ -267,6 +274,23 @@ fun CheckinScreen(
                     ) {
                         CircularProgressIndicator(color = Primary)
                     }
+                }
+
+                // 당일 미마감 입장 기록이 있는 회원 → 계속 이용할지 퇴실할지 먼저 고른다
+                uiState.needsAttendChoice && uiState.member != null -> {
+                    MemberAttendTypeScreen(
+                        memberName = uiState.member!!.name,
+                        canReentry = uiState.canReentry,
+                        onContinue = {
+                            lastInteraction = System.currentTimeMillis()
+                            viewModel.continueEntry()
+                        },
+                        onCheckout = {
+                            lastInteraction = System.currentTimeMillis()
+                            viewModel.checkout()
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
 
                 uiState.member == null -> {
