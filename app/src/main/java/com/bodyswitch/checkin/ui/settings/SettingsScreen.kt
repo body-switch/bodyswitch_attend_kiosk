@@ -82,6 +82,7 @@ fun SettingsScreen(
     var phoneEnabled by remember { mutableStateOf(checkinSettingsManager.phoneCheckinEnabled) }
     var staffPhone by remember { mutableStateOf(checkinSettingsManager.staffPhoneNumber) }
     var hideExpired by remember { mutableStateOf(checkinSettingsManager.hideExpiredTicketsEnabled) }
+    var recheckOnReentry by remember { mutableStateOf(checkinSettingsManager.recheckTicketOnReentry) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showSaveDialog by remember { mutableStateOf(false) }
@@ -251,6 +252,32 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
 
+            // ── 재입장 ──
+            Text(
+                text = "재입장",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TealPrimary,
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "오늘 이미 입장한 회원이 다시 체크인할 때의 동작입니다",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = GrayText,
+            )
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            PlainToggleCard(
+                title = "재입장 시 이용권 다시 확인",
+                subtitle = "끄면 이용권 확인 없이 바로 재입장합니다. 켜면 이용권 선택 화면을 다시 띄웁니다",
+                isEnabled = recheckOnReentry,
+                onClick = { recheckOnReentry = !recheckOnReentry },
+            )
+
+            Spacer(modifier = Modifier.height(48.dp))
+
             // ── 직원 연락처 ──
             Text(
                 text = "직원 연락처",
@@ -362,6 +389,7 @@ fun SettingsScreen(
                 checkinSettingsManager.phoneCheckinEnabled = phoneEnabled
                 checkinSettingsManager.staffPhoneNumber = staffPhone
                 checkinSettingsManager.hideExpiredTicketsEnabled = hideExpired
+                checkinSettingsManager.recheckTicketOnReentry = recheckOnReentry
 
                 // 출입문 설정: 연동 지점 + 토글 ON + 선택된 도어가 있을 때만 활성 저장
                 val canUseDoor = doorState.connected && doorState.doors.isNotEmpty()

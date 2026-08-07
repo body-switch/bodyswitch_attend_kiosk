@@ -45,6 +45,12 @@ class CheckinSettingsManager @Inject constructor(
         get() = prefs.getBoolean(KEY_HIDE_EXPIRED, false)
         set(value) = prefs.edit().putBoolean(KEY_HIDE_EXPIRED, value).apply()
 
+    // 재입장 시 이용권을 다시 확인할지 여부.
+    // true면 무차감 재입장을 건너뛰고 일반 이용권 선택 화면을 띄운다.
+    var recheckTicketOnReentry: Boolean
+        get() = prefs.getBoolean(KEY_RECHECK_ON_REENTRY, false)
+        set(value) = prefs.edit().putBoolean(KEY_RECHECK_ON_REENTRY, value).apply()
+
     companion object {
         private const val KEY_QR_ENABLED = "qr_checkin_enabled"
         private const val KEY_PHONE_ENABLED = "phone_checkin_enabled"
@@ -53,5 +59,6 @@ class CheckinSettingsManager @Inject constructor(
         private const val KEY_DOOR_SENSOR_ID = "door_sensor_id"
         private const val KEY_DOOR_ROOM_NAME = "door_room_name"
         private const val KEY_HIDE_EXPIRED = "hide_expired_tickets"
+        private const val KEY_RECHECK_ON_REENTRY = "recheck_ticket_on_reentry"
     }
 }
