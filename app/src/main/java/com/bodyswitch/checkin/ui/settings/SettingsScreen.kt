@@ -82,6 +82,7 @@ fun SettingsScreen(
     var phoneEnabled by remember { mutableStateOf(checkinSettingsManager.phoneCheckinEnabled) }
     var staffPhone by remember { mutableStateOf(checkinSettingsManager.staffPhoneNumber) }
     var hideExpired by remember { mutableStateOf(checkinSettingsManager.hideExpiredTicketsEnabled) }
+    var todayOnly by remember { mutableStateOf(checkinSettingsManager.todayOnlyTicketsEnabled) }
     var recheckOnReentry by remember { mutableStateOf(checkinSettingsManager.recheckTicketOnReentry) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -245,9 +246,19 @@ fun SettingsScreen(
 
             PlainToggleCard(
                 title = "만료 이용권 숨기기",
-                subtitle = "사용 중인 수강권·이용권만 표시합니다 (사용 가능한 것이 없으면 만료된 것도 표시)",
+                subtitle = "사용 중인 수강권·이용권만 표시합니다",
                 isEnabled = hideExpired,
                 onClick = { hideExpired = !hideExpired },
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            PlainToggleCard(
+                title = "당일 입장 가능한 것만 표시",
+                subtitle = "오늘 예약된 수업이 있는 수강권만 표시합니다 (시작 전인 상품도 숨김). "
+                    + "이용권은 예약과 무관하게 기간만 봅니다",
+                isEnabled = todayOnly,
+                onClick = { todayOnly = !todayOnly },
             )
 
             Spacer(modifier = Modifier.height(48.dp))
@@ -389,6 +400,7 @@ fun SettingsScreen(
                 checkinSettingsManager.phoneCheckinEnabled = phoneEnabled
                 checkinSettingsManager.staffPhoneNumber = staffPhone
                 checkinSettingsManager.hideExpiredTicketsEnabled = hideExpired
+                checkinSettingsManager.todayOnlyTicketsEnabled = todayOnly
                 checkinSettingsManager.recheckTicketOnReentry = recheckOnReentry
 
                 // 출입문 설정: 연동 지점 + 토글 ON + 선택된 도어가 있을 때만 활성 저장

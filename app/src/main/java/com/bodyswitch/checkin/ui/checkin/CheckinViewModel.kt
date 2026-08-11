@@ -87,6 +87,9 @@ class CheckinViewModel @Inject constructor(
     /** 만료 이용권 숨김 여부(설정 화면에서 저장하는 기기 로컬 값). */
     val hideExpiredTickets: Boolean = settingsManager.hideExpiredTicketsEnabled
 
+    /** 빈 목록 안내 문구를 "예약 없음" 쪽으로 바꾸기 위한 설정값. */
+    val todayOnlyTickets: Boolean = settingsManager.todayOnlyTicketsEnabled
+
     private var token: String? = passedToken
     private val checkInMethod: String = if (qrData != null) "QR" else "PHONE"
 
@@ -162,7 +165,11 @@ class CheckinViewModel @Inject constructor(
         val startedAt = SystemClock.elapsedRealtime()
 
         try {
-            val response = api.getTickets(bearerToken, branchId = sessionManager.branchId)
+            val response = api.getTickets(
+                bearerToken,
+                branchId = sessionManager.branchId,
+                todayOnly = settingsManager.todayOnlyTicketsEnabled,
+            )
             Log.d("CHECKIN", "이용권 조회 성공: ${response.memberName}")
 
             val tickets = mutableListOf<Ticket>()

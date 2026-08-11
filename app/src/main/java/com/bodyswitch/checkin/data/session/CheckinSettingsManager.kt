@@ -51,6 +51,12 @@ class CheckinSettingsManager @Inject constructor(
         get() = prefs.getBoolean(KEY_RECHECK_ON_REENTRY, false)
         set(value) = prefs.edit().putBoolean(KEY_RECHECK_ON_REENTRY, value).apply()
 
+    // 오늘 입장 가능한 이용권만 표시할지 여부.
+    // 서버로 todayOnly 파라미터를 보내며, 판정(오늘 이 지점 예약 여부)은 서버가 한다.
+    var todayOnlyTicketsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_TODAY_ONLY, false)
+        set(value) = prefs.edit().putBoolean(KEY_TODAY_ONLY, value).apply()
+
     companion object {
         private const val KEY_QR_ENABLED = "qr_checkin_enabled"
         private const val KEY_PHONE_ENABLED = "phone_checkin_enabled"
@@ -60,5 +66,6 @@ class CheckinSettingsManager @Inject constructor(
         private const val KEY_DOOR_ROOM_NAME = "door_room_name"
         private const val KEY_HIDE_EXPIRED = "hide_expired_tickets"
         private const val KEY_RECHECK_ON_REENTRY = "recheck_ticket_on_reentry"
+        private const val KEY_TODAY_ONLY = "today_only_tickets"
     }
 }

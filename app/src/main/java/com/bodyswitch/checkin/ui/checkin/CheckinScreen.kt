@@ -274,7 +274,6 @@ fun CheckinScreen(
                 uiState.needsAttendChoice && uiState.member != null -> {
                     MemberAttendTypeScreen(
                         memberName = uiState.member!!.name,
-                        canReentry = uiState.canReentry,
                         onContinue = {
                             lastInteraction = System.currentTimeMillis()
                             viewModel.continueEntry()
@@ -313,19 +312,30 @@ fun CheckinScreen(
                     // 세로 모드에서는 카드 열 폭이 과하게 좁아지므로 1열로 쌓는다
                     val cardColumns = if (isPortrait()) 1 else 2
                     // PASS형 체험권(이용권형)은 "이용권" 섹션에 노출한다. 레슨형 체험권/수강권만 "수강권" 섹션.
-                    val activeTickets = member.tickets.filter { it.status != "INACTIVE" && !it.isPassType }
+                    // 서버 날짜는 세 종류 모두 "yyyy-MM-dd" 라 문자열 비교로 오늘과 대소를 가릴 수 있다.
+                    val todayIso = LocalDate.now().toString()
+                    val isUpcoming = { startDate: String? -> startDate != null && startDate > todayIso }
+
+                    val liveTickets = member.tickets.filter { it.status != "INACTIVE" && !it.isPassType }
+                    val activeTickets = liveTickets.filterNot { isUpcoming(it.startDate) }
+                    val upcomingTickets = liveTickets.filter { isUpcoming(it.startDate) }
                     val expiredTickets = member.tickets.filter { it.status == "INACTIVE" && !it.isPassType }
-                    val activePassTrials = member.tickets.filter { it.status != "INACTIVE" && it.isPassType }
+
+                    val livePassTrials = member.tickets.filter { it.status != "INACTIVE" && it.isPassType }
+                    val activePassTrials = livePassTrials.filterNot { isUpcoming(it.startDate) }
+                    val upcomingPassTrials = livePassTrials.filter { isUpcoming(it.startDate) }
                     val expiredPassTrials = member.tickets.filter { it.status == "INACTIVE" && it.isPassType }
-                    val activePasses = member.passes.filter { it.status != "INACTIVE" }
+
+                    val livePasses = member.passes.filter { it.status != "INACTIVE" }
+                    val activePasses = livePasses.filterNot { isUpcoming(it.startDate) }
+                    val upcomingPasses = livePasses.filter { isUpcoming(it.startDate) }
                     val expiredPasses = member.passes.filter { it.status == "INACTIVE" }
 
-                    // 만료 숨김 설정이 켜져 있어도, 사용 가능한 이용권이 하나도 없으면
-                    // 화면이 비어버리므로 만료된 것이라도 보여준다.
-                    val hasAnyActive = activeTickets.isNotEmpty() ||
-                        activePassTrials.isNotEmpty() ||
-                        activePasses.isNotEmpty()
-                    val showExpired = !viewModel.hideExpiredTickets || !hasAnyActive
+                    // 설정 그대로만 따른다. 예전에는 활성권이 없으면 만료권이라도 보여주는
+                    // fallback 이 있었는데, 빈 화면을 막으려던 그 역할은 EmptyTicketNotice 가 대신한다.
+                    // fallback 을 남겨두면 "당일 입장 가능한 것만" 이 켜졌을 때
+                    // 활성권이 전부 걸러진 결과로 오히려 만료권이 떠버린다.
+                    val showExpired = !viewModel.hideExpiredTickets
 
                     val selectedReservation = uiState.reservations.find { it.reservationId == uiState.selectedReservationId }
                     val canCheckin = when {
@@ -432,6 +442,21 @@ fun CheckinScreen(
                             .verticalScroll(scrollState)
                             .padding(vertical = 8.dp),
                     ) {
+                        // 보여줄 카드가 하나도 없으면 이유를 알려준다.
+                        // "이용권이 없음"과 "오늘 예약이 없음"은 회원이 해야 할 행동이 다르다.
+                        val nothingToShow = activeTickets.isEmpty() &&
+                            activePassTrials.isEmpty() &&
+                            activePasses.isEmpty() &&
+                            upcomingTickets.isEmpty() &&
+                            upcomingPassTrials.isEmpty() &&
+                            upcomingPasses.isEmpty() &&
+                            (!showExpired ||
+                                (expiredTickets.isEmpty() && expiredPassTrials.isEmpty() &&
+                                    expiredPasses.isEmpty()))
+                        if (nothingToShow) {
+                            EmptyTicketNotice(todayOnly = viewModel.todayOnlyTickets)
+                        }
+
                         // 사용 중인 수강권
                         if (activeTickets.isNotEmpty()) {
                             SectionHeader(title = "사용 중인 수강권", count = activeTickets.size, countColor = Primary)
@@ -522,6 +547,69 @@ fun CheckinScreen(
                                                 isExpired = false,
                                                 onClick = { viewModel.selectTicket(pass.id, TicketType.COURSE_PASS) },
                                             )
+                                        }
+                                    }
+                                    if (row.size < cardColumns) Spacer(modifier = Modifier.weight(1f))
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+                        }
+
+                        // 사용 예정 수강권 — 시작일이 아직 안 됐다. 흐리게 표시하고 선택은 막는다
+                        // (isExpired=true 가 흐림 + 클릭 차단을 함께 처리한다).
+                        if (upcomingTickets.isNotEmpty()) {
+                            SectionHeader(
+                                title = "사용 예정 수강권",
+                                count = upcomingTickets.size,
+                                countColor = TextMuted,
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            upcomingTickets.chunked(cardColumns).forEach { row ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                ) {
+                                    row.forEach { ticket ->
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            TicketCard(ticket = ticket, isSelected = false, isExpired = true, onClick = {})
+                                        }
+                                    }
+                                    if (row.size < cardColumns) Spacer(modifier = Modifier.weight(1f))
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+                        }
+
+                        // 사용 예정 이용권 (이용권 + PASS형 체험권)
+                        if (upcomingPasses.isNotEmpty() || upcomingPassTrials.isNotEmpty()) {
+                            SectionHeader(
+                                title = "사용 예정 이용권",
+                                count = upcomingPasses.size + upcomingPassTrials.size,
+                                countColor = TextMuted,
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            upcomingPassTrials.chunked(cardColumns).forEach { row ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                ) {
+                                    row.forEach { ticket ->
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            TicketCard(ticket = ticket, isSelected = false, isExpired = true, onClick = {})
+                                        }
+                                    }
+                                    if (row.size < cardColumns) Spacer(modifier = Modifier.weight(1f))
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+                            upcomingPasses.chunked(cardColumns).forEach { row ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                ) {
+                                    row.forEach { pass ->
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            PassCard(pass = pass, isSelected = false, isExpired = true, onClick = {})
                                         }
                                     }
                                     if (row.size < cardColumns) Spacer(modifier = Modifier.weight(1f))
@@ -767,6 +855,39 @@ fun CheckinScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * 보여줄 이용권이 하나도 없을 때의 안내.
+ *
+ * "당일 입장 가능한 것만 표시"가 켜져 있으면 이용권을 갖고 있어도 목록이 빌 수 있으므로,
+ * 이용권 자체가 없는 경우와 문구를 구분한다.
+ */
+@Composable
+private fun EmptyTicketNotice(todayOnly: Boolean) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = if (todayOnly) "오늘 예약된 수업이 없습니다" else "사용 가능한 이용권이 없습니다",
+            color = TextWhite,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 24.sp,
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = if (todayOnly) {
+                "수업을 예약한 뒤 다시 시도하시거나 데스크에 문의해 주세요"
+            } else {
+                "데스크에 문의해 주세요"
+            },
+            color = TextMuted,
+            fontSize = 18.sp,
+        )
     }
 }
 
