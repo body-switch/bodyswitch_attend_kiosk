@@ -223,11 +223,12 @@ class CheckinViewModel @Inject constructor(
                 passes = passes,
             )
 
-            // 설정에서 "재입장 시 이용권 다시 확인"을 켜면 무차감 재입장을 쓰지 않고
-            // 일반 이용권 선택 흐름으로 보낸다. canReentry는 자동 재입장과
-            // 선택 화면의 "계속 이용" 양쪽에서 쓰이므로 여기 한 곳만 막으면 된다.
+            // 설정에서 "이용권 확인 없이 바로 재입장"을 켜야 무차감 재입장을 쓴다.
+            // 꺼져 있으면(기본) 재입장 자격이 있어도 일반 이용권 선택 흐름으로 보낸다.
+            // canReentry는 자동 재입장과 선택 화면의 "계속 이용" 양쪽에서 쓰이므로
+            // 여기 한 곳만 막으면 된다.
             val canReentry = response.reentry?.eligible == true
-                && !settingsManager.recheckTicketOnReentry
+                && settingsManager.skipTicketCheckOnReentry
 
             // 당일 미마감 입장 기록이 있으면 계속 이용할지 퇴실할지 묻는다.
             // 재입장 자격(reentry)으로 묻지 않는 이유는 그 판정이 키오스크 입장과

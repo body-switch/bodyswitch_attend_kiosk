@@ -83,7 +83,7 @@ fun SettingsScreen(
     var staffPhone by remember { mutableStateOf(checkinSettingsManager.staffPhoneNumber) }
     var hideExpired by remember { mutableStateOf(checkinSettingsManager.hideExpiredTicketsEnabled) }
     var todayOnly by remember { mutableStateOf(checkinSettingsManager.todayOnlyTicketsEnabled) }
-    var recheckOnReentry by remember { mutableStateOf(checkinSettingsManager.recheckTicketOnReentry) }
+    var skipCheckOnReentry by remember { mutableStateOf(checkinSettingsManager.skipTicketCheckOnReentry) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showSaveDialog by remember { mutableStateOf(false) }
@@ -254,9 +254,9 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             PlainToggleCard(
-                title = "당일 입장 가능한 것만 표시",
-                subtitle = "오늘 예약된 수업이 있는 수강권만 표시합니다 (시작 전인 상품도 숨김). "
-                    + "이용권은 예약과 무관하게 기간만 봅니다",
+                title = "오늘 입장 가능한 상품만 표시",
+                subtitle = "오늘 수업 예약이 있는 수강권·일일권만 보여줍니다. "
+                    + "기간제 이용권은 예약과 상관없이 오늘이 사용 기간이면 표시합니다",
                 isEnabled = todayOnly,
                 onClick = { todayOnly = !todayOnly },
             )
@@ -281,10 +281,10 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(28.dp))
 
             PlainToggleCard(
-                title = "재입장 시 이용권 다시 확인",
-                subtitle = "끄면 이용권 확인 없이 바로 재입장합니다. 켜면 이용권 선택 화면을 다시 띄웁니다",
-                isEnabled = recheckOnReentry,
-                onClick = { recheckOnReentry = !recheckOnReentry },
+                title = "이용권 확인 없이 바로 재입장",
+                subtitle = "켜면 오늘 이미 입장한 회원을 이용권 확인 없이 바로 통과시킵니다",
+                isEnabled = skipCheckOnReentry,
+                onClick = { skipCheckOnReentry = !skipCheckOnReentry },
             )
 
             Spacer(modifier = Modifier.height(48.dp))
@@ -401,7 +401,7 @@ fun SettingsScreen(
                 checkinSettingsManager.staffPhoneNumber = staffPhone
                 checkinSettingsManager.hideExpiredTicketsEnabled = hideExpired
                 checkinSettingsManager.todayOnlyTicketsEnabled = todayOnly
-                checkinSettingsManager.recheckTicketOnReentry = recheckOnReentry
+                checkinSettingsManager.skipTicketCheckOnReentry = skipCheckOnReentry
 
                 // 출입문 설정: 연동 지점 + 토글 ON + 선택된 도어가 있을 때만 활성 저장
                 val canUseDoor = doorState.connected && doorState.doors.isNotEmpty()
