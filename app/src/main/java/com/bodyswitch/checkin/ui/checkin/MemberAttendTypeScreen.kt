@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,21 +34,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 private val ChoicePrimary = Color(0xFF4AB3BC)
-private val ChoiceExit = Color(0xFF737373)
+// 퇴실은 되돌리기 어려운 동작이라 붉은 계열로 구분하되, 경고처럼 보이지 않게 톤을 낮춘다.
+private val ChoiceExit = Color(0xFFE57373)
 private val ChoiceCardBg = Color(0xFF262626)
-private val ChoiceTextMuted = Color(0xFFA6A6A6)
 
 /**
  * 당일 미마감 입장 기록이 있는 회원에게 계속 이용할지 퇴실할지 고르게 하는 화면.
  *
  * 첫 입장 회원은 퇴실할 대상이 없으므로 이 화면을 거치지 않고 기존 이용권 선택 흐름으로 간다.
  *
- * @param canReentry 무차감 재입장 자격. 없으면 왼쪽 버튼이 기존 이용권 선택 흐름으로 간다.
+ * 왼쪽 버튼은 무차감 재입장 자격이 있으면 바로 재입장하고, 없으면 이용권 선택(차감) 흐름으로 간다.
+ * 그 분기는 호출부(onContinue)가 처리하며 회원에게는 "재입장" 하나로 보인다.
  */
 @Composable
 fun MemberAttendTypeScreen(
     memberName: String,
-    canReentry: Boolean,
     onContinue: () -> Unit,
     onCheckout: () -> Unit,
     modifier: Modifier = Modifier,
@@ -59,6 +60,24 @@ fun MemberAttendTypeScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
+        // 회원 사진 자리. 서버가 프로필 이미지를 내려주지 않아 실루엣으로 대신한다.
+        Box(
+            modifier = Modifier
+                .size(180.dp)
+                .clip(CircleShape)
+                .background(ChoiceCardBg),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Person,
+                contentDescription = null,
+                modifier = Modifier.size(120.dp),
+                tint = ChoicePrimary,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         Text(
             text = memberName,
             fontSize = 56.sp,
@@ -67,25 +86,15 @@ fun MemberAttendTypeScreen(
             textAlign = TextAlign.Center,
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = "오늘 이용 중이십니다.\n어떤 처리를 하시겠어요?",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Medium,
-            color = ChoiceTextMuted,
-            textAlign = TextAlign.Center,
-        )
-
-        Spacer(modifier = Modifier.height(56.dp))
+        Spacer(modifier = Modifier.height(40.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(32.dp),
         ) {
             ChoiceCard(
-                label = if (canReentry) "재입장" else "계속 이용",
-                description = if (canReentry) "차감 없이 다시 입장" else "이용권을 선택합니다",
+                // 무차감 재입장이든 이용권 선택(차감)이든 회원에게는 "재입장"으로 통일해 보여준다.
+                label = "재입장",
                 icon = Icons.AutoMirrored.Filled.Login,
                 accent = ChoicePrimary,
                 onClick = onContinue,
@@ -93,7 +102,6 @@ fun MemberAttendTypeScreen(
             )
             ChoiceCard(
                 label = "퇴실",
-                description = "오늘 이용을 마칩니다",
                 icon = Icons.AutoMirrored.Filled.Logout,
                 accent = ChoiceExit,
                 onClick = onCheckout,
@@ -106,15 +114,14 @@ fun MemberAttendTypeScreen(
 @Composable
 private fun ChoiceCard(
     label: String,
-    description: String,
     icon: ImageVector,
     accent: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
+        // 고정 높이를 주면 아이콘+라벨이 넘쳐 글자가 잘린다. 두 카드 구조가 같아 내용 기준으로도 높이가 맞는다.
         modifier = modifier
-            .height(360.dp)
             .clip(RoundedCornerShape(24.dp))
             .background(ChoiceCardBg)
             .clickable(
@@ -127,7 +134,7 @@ private fun ChoiceCard(
     ) {
         Box(
             modifier = Modifier
-                .size(140.dp)
+                .size(112.dp)
                 .clip(CircleShape)
                 .background(accent),
             contentAlignment = Alignment.Center,
@@ -135,28 +142,18 @@ private fun ChoiceCard(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(96.dp),
+                modifier = Modifier.size(72.dp),
                 tint = Color.White,
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         Text(
             text = label,
             fontSize = 48.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White,
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = description,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Medium,
-            color = ChoiceTextMuted,
-            textAlign = TextAlign.Center,
         )
     }
 }

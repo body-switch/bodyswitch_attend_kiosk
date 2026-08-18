@@ -75,10 +75,13 @@ interface KioskApi {
     ): QrLoginResponse
 
     // 이용권 목록 조회
+    // todayOnly=true 면 오늘 입장 근거가 없는 활성 이용권을 서버가 응답에서 뺀다
+    // (수강권·일일권은 오늘 이 지점 예약이 있어야 하고, 세 종류 모두 오늘이 이용 기간 안이어야 한다).
     @GET("kiosk/api/v1/checkin/tickets")
     suspend fun getTickets(
         @Header("Authorization") authorization: String,
         @Query("branchId") branchId: Long? = null,
+        @Query("todayOnly") todayOnly: Boolean = false,
     ): TicketsResponse
 
     // 체크인 차감

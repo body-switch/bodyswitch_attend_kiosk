@@ -40,6 +40,24 @@ class CheckinSettingsManager @Inject constructor(
         get() = prefs.getString(KEY_DOOR_ROOM_NAME, "") ?: ""
         set(value) = prefs.edit().putString(KEY_DOOR_ROOM_NAME, value).apply()
 
+    // 체크인 화면에서 만료된 수강권/이용권 섹션을 숨길지 여부
+    var hideExpiredTicketsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_HIDE_EXPIRED, false)
+        set(value) = prefs.edit().putBoolean(KEY_HIDE_EXPIRED, value).apply()
+
+    // 재입장 시 이용권 확인을 건너뛸지 여부.
+    // true면 오늘 이미 입장한 회원을 이용권 확인 없이 바로 통과시킨다(무차감 재입장).
+    // false(기본)면 재입장이라도 이용권 선택 화면을 거친다.
+    var skipTicketCheckOnReentry: Boolean
+        get() = prefs.getBoolean(KEY_SKIP_CHECK_ON_REENTRY, false)
+        set(value) = prefs.edit().putBoolean(KEY_SKIP_CHECK_ON_REENTRY, value).apply()
+
+    // 오늘 입장 가능한 이용권만 표시할지 여부.
+    // 서버로 todayOnly 파라미터를 보내며, 판정(오늘 이 지점 예약 여부)은 서버가 한다.
+    var todayOnlyTicketsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_TODAY_ONLY, false)
+        set(value) = prefs.edit().putBoolean(KEY_TODAY_ONLY, value).apply()
+
     companion object {
         private const val KEY_QR_ENABLED = "qr_checkin_enabled"
         private const val KEY_PHONE_ENABLED = "phone_checkin_enabled"
@@ -47,5 +65,8 @@ class CheckinSettingsManager @Inject constructor(
         private const val KEY_DOOR_ENABLED = "door_open_enabled"
         private const val KEY_DOOR_SENSOR_ID = "door_sensor_id"
         private const val KEY_DOOR_ROOM_NAME = "door_room_name"
+        private const val KEY_HIDE_EXPIRED = "hide_expired_tickets"
+        private const val KEY_SKIP_CHECK_ON_REENTRY = "skip_ticket_check_on_reentry"
+        private const val KEY_TODAY_ONLY = "today_only_tickets"
     }
 }
