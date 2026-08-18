@@ -873,7 +873,7 @@ private fun EmptyTicketNotice(todayOnly: Boolean) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = if (todayOnly) "오늘 예약된 수업이 없습니다" else "사용 가능한 이용권이 없습니다",
+            text = if (todayOnly) "오늘 입장 가능한 이용권이 없습니다" else "사용 가능한 이용권이 없습니다",
             color = TextWhite,
             fontWeight = FontWeight.SemiBold,
             fontSize = 24.sp,
@@ -881,7 +881,7 @@ private fun EmptyTicketNotice(todayOnly: Boolean) {
         Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = if (todayOnly) {
-                "수업을 예약한 뒤 다시 시도하시거나 데스크에 문의해 주세요"
+                "수업 예약이 있는지 확인하시거나 데스크에 문의해 주세요"
             } else {
                 "데스크에 문의해 주세요"
             },
