@@ -21,8 +21,12 @@ import java.util.concurrent.TimeUnit
 // (2026-08-19 운영 실측). 과압축도 같은 결과를 부르므로 품질을 더 낮추지 않는다.
 object FaceImageEncoder {
 
-    private const val MAX_LONG_SIDE = 1280
-    private const val JPEG_QUALITY = 85
+    // 회원앱(AOS)은 크롭한 비트맵을 축소 없이 JPEG 100 으로 올린다. 우리는 1280/Q85 로 줄였는데
+    // 크롭으로 확대한 만큼 축소·압축 손실이 그대로 드러나 UBio 가 VAGUE(흐릿함)로 반려했다.
+    // 큰 배율의 1회 bilinear 축소가 특히 뭉갠다. 업로드 크기는 병목이 아니므로(실측 175KB, 품질체크 1.2초)
+    // 축소 폭을 줄이고 품질을 올린다.
+    private const val MAX_LONG_SIDE = 1920
+    private const val JPEG_QUALITY = 95
 
     // AOS 와 동일한 크롭 비율. 0.6 = 가운데 60% 영역만 사용 = 1.67배 확대 효과
     private const val CROP_RATIO = 0.6f
