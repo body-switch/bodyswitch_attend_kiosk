@@ -466,7 +466,11 @@ fun CheckinScreen(
 
                         // 사용 중인 수강권
                         if (activeTickets.isNotEmpty()) {
-                            SectionHeader(title = "사용 중인 수강권", count = activeTickets.size, countColor = Primary)
+                            SectionHeader(
+                                title = "사용 중인 수강권",
+                                count = activeTickets.size,
+                                countColor = sectionAccent(activeTickets.map { it.sportType }),
+                            )
                             Spacer(modifier = Modifier.height(12.dp))
                             activeTickets.chunked(cardColumns).forEach { row ->
                                 Row(
@@ -516,7 +520,10 @@ fun CheckinScreen(
                             SectionHeader(
                                 title = "사용 중인 이용권",
                                 count = activePasses.size + activePassTrials.size,
-                                countColor = Primary,
+                                countColor = sectionAccent(
+                                    activePasses.map { it.sportType } +
+                                        activePassTrials.map { it.sportType }
+                                ),
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             // PASS형 체험권 (이용권처럼 예약 없이 입장)
@@ -916,6 +923,13 @@ private fun SectionHeader(title: String, count: Int, countColor: Color) {
 
 // 종목별 강조색. 어두운 테마라 배경을 통째로 칠하지 않고 뱃지·선택 테두리 같은 강조 요소에만 쓴다.
 // 모르는 값이거나 상품에 종목이 없으면 기존 기본색으로 떨어진다.
+// 섹션 카운트 색. 그 섹션에 담긴 종목이 하나뿐일 때만 종목색을 쓰고, 섞여 있으면 기본색으로 둔다.
+// 여러 종목을 한 색으로 뭉뚱그리면 카드 색과 어긋나 보인다.
+private fun sectionAccent(sportTypes: List<String?>): Color {
+    val distinct = sportTypes.filterNotNull().distinct()
+    return if (distinct.size == 1) sportAccent(distinct.first()) else Primary
+}
+
 private fun sportAccent(sportType: String?): Color = when (sportType) {
     "FITNESS" -> Color(0xFFFF8A3D)
     "PILATES" -> Color(0xFFA78BFA)
@@ -1040,7 +1054,7 @@ private fun TicketCard(
                     if (!isExpired) {
                         Text(
                             buildAnnotatedString {
-                                withStyle(SpanStyle(color = Primary, fontWeight = FontWeight.SemiBold)) { append("${ticket.remainCount}회 ") }
+                                withStyle(SpanStyle(color = sportColor, fontWeight = FontWeight.SemiBold)) { append("${ticket.remainCount}회 ") }
                                 withStyle(SpanStyle(color = TextWhite)) { append("남음") }
                             },
                             fontSize = 14.sp,
@@ -1055,7 +1069,9 @@ private fun TicketCard(
                         .fillMaxWidth()
                         .height(10.dp)
                         .clip(RoundedCornerShape(999.dp))
-                        .background(if (isExpired) ProgressTrack else PrimaryBg),
+                        .background(
+                            if (isExpired) ProgressTrack else sportColor.copy(alpha = 0.15f)
+                        ),
                 ) {
                     if (!isExpired && progress > 0f) {
                         Box(
@@ -1063,7 +1079,7 @@ private fun TicketCard(
                                 .fillMaxWidth(progress)
                                 .height(10.dp)
                                 .clip(RoundedCornerShape(999.dp))
-                                .background(Primary),
+                                .background(sportColor),
                         )
                     }
                 }
