@@ -520,10 +520,7 @@ fun CheckinScreen(
                             SectionHeader(
                                 title = "사용 중인 이용권",
                                 count = activePasses.size + activePassTrials.size,
-                                countColor = sectionAccent(
-                                    activePasses.map { it.sportType } +
-                                        activePassTrials.map { it.sportType }
-                                ),
+                                countColor = productAccent(TicketType.COURSE_PASS),
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             // PASS형 체험권 (이용권처럼 예약 없이 입장)
@@ -921,28 +918,14 @@ private fun SectionHeader(title: String, count: Int, countColor: Color) {
     }
 }
 
-// 종목별 강조색. 어두운 테마라 배경을 통째로 칠하지 않고 뱃지·선택 테두리 같은 강조 요소에만 쓴다.
-// 모르는 값이거나 상품에 종목이 없으면 기존 기본색으로 떨어진다.
-// 섹션 카운트 색. 그 섹션에 담긴 종목이 하나뿐일 때만 종목색을 쓰고, 섞여 있으면 기본색으로 둔다.
-// 여러 종목을 한 색으로 뭉뚱그리면 카드 색과 어긋나 보인다.
-private fun sectionAccent(sportTypes: List<String?>): Color {
-    val distinct = sportTypes.filterNotNull().distinct()
-    return if (distinct.size == 1) sportAccent(distinct.first()) else Primary
-}
+// 상품(권종)별 강조색. 종목이 아니라 무슨 상품인지로 구분한다.
+// 어두운 테마라 배경을 통째로 칠하지 않고 테두리·뱃지·게이지 같은 강조 요소에만 쓴다.
+private val ProductPassColor = Color(0xFFA78BFA)
+private val ProductTrialColor = Color(0xFFFBBF24)
 
-private fun sportAccent(sportType: String?): Color = when (sportType) {
-    "FITNESS" -> Color(0xFFFF8A3D)
-    "PILATES" -> Color(0xFFA78BFA)
-    "GOLF" -> Color(0xFF4ADE80)
-    "YOGA" -> Color(0xFF22D3EE)
-    "CROSSFIT" -> Color(0xFFF87171)
-    "BALL_GAMES" -> Color(0xFFA3E635)
-    "BOXING" -> Color(0xFFFB7185)
-    "DANCE" -> Color(0xFFF472B6)
-    "SWIMMING" -> Color(0xFF60A5FA)
-    "EDUCATION" -> Color(0xFF818CF8)
-    "BARRE_PILATES" -> Color(0xFFC4B5FD)
-    "TANNING" -> Color(0xFFFBBF24)
+private fun productAccent(ticketType: TicketType?): Color = when (ticketType) {
+    TicketType.COURSE_PASS -> ProductPassColor
+    TicketType.TRIAL_TICKET -> ProductTrialColor
     else -> Primary
 }
 
@@ -954,8 +937,7 @@ private fun TicketCard(
     onClick: () -> Unit,
 ) {
     val textColor = if (isExpired) TextMuted else TextWhite
-    // 종목색은 이용권 계열에만 쓴다. 수강권(과 차감형 체험권)은 기존 기본색을 유지한다.
-    val sportColor = if (ticket.isPassType) sportAccent(ticket.sportType) else Primary
+    val sportColor = productAccent(ticket.type)
     val accentColor = if (isExpired) TextMuted else sportColor
     val badgeLabel = if (ticket.type == TicketType.TRIAL_TICKET) "체험권" else "수강권"
     val daysRemaining = calculateDaysRemaining(ticket.expireDate)
@@ -1097,7 +1079,7 @@ private fun PassCard(
     onClick: () -> Unit,
 ) {
     val textColor = if (isExpired) TextMuted else TextWhite
-    val sportColor = sportAccent(pass.sportType)
+    val sportColor = productAccent(TicketType.COURSE_PASS)
     val accentColor = if (isExpired) TextMuted else sportColor
     val daysRemaining = calculateDaysRemaining(pass.expireDate)
 

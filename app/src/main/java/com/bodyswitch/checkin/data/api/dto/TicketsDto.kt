@@ -39,8 +39,6 @@ data class TicketDto(
     // 일일권 이용구분(PERIOD=기간제면 이용권형 → 차감/잔여횟수/예약 없이 기간 내 입장. COUNT=횟수제).
     val usageType: String? = null,
     val status: String? = null,
-    // 종목. 카드 강조색을 이걸로 정한다. 상품에 종목이 없으면 null.
-    val sportType: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -51,5 +49,4 @@ data class CoursePassDto(
     val expireDate: String?,
     val ticketType: String,
     val status: String? = null,
-    val sportType: String? = null,
 )
