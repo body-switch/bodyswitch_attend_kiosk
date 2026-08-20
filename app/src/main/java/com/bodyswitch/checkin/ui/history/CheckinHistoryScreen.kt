@@ -372,10 +372,9 @@ private fun AttendanceRow(record: AttendanceRecord) {
         ""
     }
 
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp)) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 14.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // 왼쪽: 정보
@@ -481,4 +480,63 @@ private fun AttendanceRow(record: AttendanceRecord) {
             }
         }
     }
+
+        // 이용권별 입장 줄. 어떤 이용권으로 언제 들어와 얼마나 있었는지 각각 본다.
+        // 적재 이전 날짜는 비어 있어 위 한 줄 표기만 남는다.
+        if (record.entries.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(10.dp))
+            record.entries.forEach { entry ->
+                EntryLineRow(entry)
+            }
+        }
+    }
 }
+
+// 입장 1건. 퇴실은 그날 하나를 공유하므로 줄마다 같은 값이 찍힌다.
+@Composable
+private fun EntryLineRow(entry: EntryLine) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .background(TealPrimary.copy(alpha = 0.18f), RoundedCornerShape(4.dp))
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+        ) {
+            Text(
+                text = entry.ticketName ?: "-",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = TealPrimary,
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "${entry.enterTime.take(5)} ~ ${entry.exitTime?.take(5) ?: ""}",
+            fontSize = 13.sp,
+            color = GrayText,
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = formatStay(entry.staySeconds),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = GrayText,
+        )
+    }
+}
+
+// 체류시간 표기. 퇴실 전이면 빈칸, 1분 미만은 초로 보여준다.
+private fun formatStay(staySeconds: Long?): String {
+    if (staySeconds == null) return ""
+    if (staySeconds < SECONDS_PER_MINUTE) return "${staySeconds}초"
+    val minutes = staySeconds / SECONDS_PER_MINUTE
+    if (minutes < MINUTES_PER_HOUR) return "${minutes}분"
+    return "${minutes / MINUTES_PER_HOUR}시간 ${minutes % MINUTES_PER_HOUR}분"
+}
+
+private const val SECONDS_PER_MINUTE = 60
+private const val MINUTES_PER_HOUR = 60

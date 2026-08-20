@@ -46,6 +46,19 @@ data class AttendanceItem(
     val writeDate: String,
     val startTime: String,
     val endTime: String?,
+    // 이용권 단위 입장 내역. member_entry_event 적재(2026-08-18) 이전 날짜는 비어 있다.
+    val entries: List<AttendanceEntry> = emptyList(),
+)
+
+// 이용권 1건 기준 입장. 퇴실 시각은 그날 하나를 공유하고, 체류시간은 입장 건별로 계산된다.
+@JsonClass(generateAdapter = true)
+data class AttendanceEntry(
+    val eventType: String?,
+    val enterTime: String?,
+    val exitTime: String?,
+    val staySeconds: Long?,
+    val ticketType: String?,
+    val ticketName: String?,
 )
 
 // 직원 출입 기록

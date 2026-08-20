@@ -35,6 +35,16 @@ data class AttendanceRecord(
     val isEmployee: Boolean = false,
     val entryCount: Int? = null,
     val exitCount: Int? = null,
+    // 이용권별 입장 줄. 비어 있으면(적재 이전 날짜) 기존 한 줄 표기를 그대로 쓴다.
+    val entries: List<EntryLine> = emptyList(),
+)
+
+// 어떤 이용권으로 언제 들어와 얼마나 있었는지. 퇴실 시각은 그날 하나를 공유한다.
+data class EntryLine(
+    val enterTime: String,
+    val exitTime: String?,
+    val staySeconds: Long?,
+    val ticketName: String?,
 )
 
 data class HistoryUiState(
@@ -131,6 +141,16 @@ class CheckinHistoryViewModel @Inject constructor(
                         endTime = item.endTime,
                         date = item.writeDate,
                         status = if (item.endTime != null) "퇴실" else "이용중",
+                        entries = item.entries.mapNotNull { entry ->
+                            entry.enterTime?.let {
+                                EntryLine(
+                                    enterTime = it,
+                                    exitTime = entry.exitTime,
+                                    staySeconds = entry.staySeconds,
+                                    ticketName = entry.ticketName,
+                                )
+                            }
+                        },
                     )
                 }
 
