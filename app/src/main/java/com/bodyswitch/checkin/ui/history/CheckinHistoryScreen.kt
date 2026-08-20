@@ -514,18 +514,22 @@ private fun EntryLineRow(entry: EntryLine) {
             )
         }
         Spacer(modifier = Modifier.width(8.dp))
+        // 입장~퇴실 구간과 그 길이(이용시간)를 함께 적는다. 퇴실 전이면 뒤가 비어 있다.
         Text(
             text = "${entry.enterTime.take(5)} ~ ${entry.exitTime?.take(5) ?: ""}",
             fontSize = 13.sp,
             color = GrayText,
         )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = formatStay(entry.staySeconds),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            color = GrayText,
-        )
+        val stayText = formatStay(entry.staySeconds)
+        if (stayText.isNotEmpty()) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "이용시간 $stayText",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = TealPrimary,
+            )
+        }
     }
 }
 
