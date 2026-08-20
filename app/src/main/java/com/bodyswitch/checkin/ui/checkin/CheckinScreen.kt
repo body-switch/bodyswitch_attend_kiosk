@@ -1022,7 +1022,7 @@ private fun TicketCard(
                 if (!isExpired && daysRemaining != null) {
                     Text(
                         buildAnnotatedString {
-                            withStyle(SpanStyle(color = Primary, fontWeight = FontWeight.SemiBold)) { append("${daysRemaining}일 ") }
+                            withStyle(SpanStyle(color = sportColor, fontWeight = FontWeight.SemiBold)) { append("${daysRemaining}일 ") }
                             withStyle(SpanStyle(color = TextWhite)) { append("남음") }
                         },
                         fontSize = 14.sp,
@@ -1162,7 +1162,7 @@ private fun PassCard(
                 if (!isExpired && daysRemaining != null) {
                     Text(
                         buildAnnotatedString {
-                            withStyle(SpanStyle(color = Primary, fontWeight = FontWeight.SemiBold)) { append("${daysRemaining}일 ") }
+                            withStyle(SpanStyle(color = sportColor, fontWeight = FontWeight.SemiBold)) { append("${daysRemaining}일 ") }
                             withStyle(SpanStyle(color = TextWhite)) { append("남음") }
                         },
                         fontSize = 14.sp,
@@ -1178,7 +1178,7 @@ private fun PassCard(
                     .fillMaxWidth()
                     .height(10.dp)
                     .clip(RoundedCornerShape(999.dp))
-                    .background(if (isExpired) ProgressTrack else PrimaryBg),
+                    .background(if (isExpired) ProgressTrack else sportColor.copy(alpha = 0.15f)),
             ) {
                 if (!isExpired && periodProgress > 0f) {
                     Box(
@@ -1186,7 +1186,7 @@ private fun PassCard(
                             .fillMaxWidth(periodProgress.coerceIn(0f, 1f))
                             .height(10.dp)
                             .clip(RoundedCornerShape(999.dp))
-                            .background(Primary),
+                            .background(sportColor),
                     )
                 }
             }
