@@ -956,7 +956,8 @@ private fun FaceStep(
 
     val imageCapture = remember {
         ImageCapture.Builder()
-            .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+            // 회원앱(AOS)과 동일. 어차피 크롭+1280 축소라 풀센서 후처리는 지연만 늘린다
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
             .build()
     }
     val captureExecutor = remember { Executors.newSingleThreadExecutor() }
