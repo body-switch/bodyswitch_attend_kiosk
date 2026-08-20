@@ -1009,12 +1009,23 @@ private fun FaceStep(
 
     fun capture() {
         onStartCapture()
+        // 촬영 지연 실측용. 셔터(3A 수렴+ISP)와 인코딩 중 어디에 시간이 쓰이는지 갈라 본다.
+        val pressedAt = System.currentTimeMillis()
         imageCapture.takePicture(
             captureExecutor,
             object : ImageCapture.OnImageCapturedCallback() {
                 override fun onCaptureSuccess(image: ImageProxy) {
+                    val shutterMs = System.currentTimeMillis() - pressedAt
                     try {
+                        val encodeStart = System.currentTimeMillis()
                         val encoded = FaceImageEncoder.encodeToBase64Jpeg(image)
+                        val encodeMs = System.currentTimeMillis() - encodeStart
+                        Log.i(
+                            "ACCESS_REG_PERF",
+                            "촬영 소요(ms) - shutter=$shutterMs, encode=$encodeMs, " +
+                                "total=${System.currentTimeMillis() - pressedAt}, " +
+                                "imageKB=${encoded.length / 1024}",
+                        )
                         onCaptured(encoded)
                     } catch (e: Exception) {
                         Log.e("ACCESS_REG", "얼굴 이미지 인코딩 실패", e)

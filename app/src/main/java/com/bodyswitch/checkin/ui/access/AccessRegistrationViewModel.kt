@@ -281,11 +281,14 @@ class AccessRegistrationViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            // 업로드+서버 처리 구간 실측. 앱(촬영·인코딩)과 서버 몫을 갈라 보기 위함.
+            val requestStart = System.currentTimeMillis()
             try {
                 val response = api.registerFace(
                     authorization = "Bearer $token",
                     request = FaceRegistrationRequest(branchId = branchId, authImage = authImage),
                 )
+                Log.i(TAG, "안면등록 API 소요(ms)=${System.currentTimeMillis() - requestStart}")
                 _uiState.update {
                     it.copy(
                         isRegistering = false,
