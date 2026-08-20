@@ -104,8 +104,10 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -130,6 +132,13 @@ private const val IDLE_WARNING_SECONDS = 10
 private val STEP_INDICATOR_COMPACT_WIDTH = 820.dp
 
 // 얼굴 가이드 사각형이 카메라 프리뷰에서 차지하는 비율 (기존 480dp 기준 290x335dp)
+// 촬영 버튼을 누른 직후는 손을 뻗느라 고개가 돌아가고 기기가 흔들린다. 그 구간을 흘려보낸 뒤
+// 검증을 연속으로 통과하는 프레임에서 셔터를 누른다 (2026-08-20 dev 실측: SIDE_FACE/VAGUE 반복).
+private const val CAPTURE_SETTLE_MS = 600L
+private const val CAPTURE_STABLE_POLL_MS = 100L
+private const val CAPTURE_STABLE_FRAMES = 3
+private const val CAPTURE_WAIT_TIMEOUT_MS = 3000L
+
 private const val GUIDE_WIDTH_RATIO = 0.60f
 private const val GUIDE_HEIGHT_RATIO = 0.70f
 private val DisabledBtnBg = Color(0xFF1A1F23)
@@ -956,8 +965,9 @@ private fun FaceStep(
 
     val imageCapture = remember {
         ImageCapture.Builder()
-            // 회원앱(AOS)과 동일. 어차피 크롭+1280 축소라 풀센서 후처리는 지연만 늘린다
-            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            // 초점·노출 수렴을 기다리는 모드. MINIMIZE_LATENCY 로 바꿨더니 흐릿한 사진이 늘어
+            // UBio 가 VAGUE 로 반려했다 (2026-08-20 dev 실측).
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .build()
     }
     val captureExecutor = remember { Executors.newSingleThreadExecutor() }
@@ -972,7 +982,10 @@ private fun FaceStep(
     // 촬영(등록) 중에는 마지막 상태를 유지 (오버레이 위 프리뷰 분석은 멈춤)
     val faceValid = faceResult.isValid && !isRegistering
 
-    fun capture() {
+    // 촬영 대기 중 = 버튼은 눌렀지만 아직 셔터를 안 누른 상태. 프리뷰를 가리지 않는다.
+    var awaitingCapture by remember { mutableStateOf(false) }
+
+    fun shoot() {
         onStartCapture()
         imageCapture.takePicture(
             captureExecutor,
@@ -995,6 +1008,23 @@ private fun FaceStep(
                 }
             },
         )
+    }
+
+    // 버튼을 누르면 바로 찍지 않는다. 손을 뗄 시간을 준 뒤, 검증을 연속 통과하는 프레임에서 셔터를 누른다.
+    // 제한 시간 안에 안정된 프레임을 못 잡으면 촬영하지 않고 재시도를 유도한다.
+    LaunchedEffect(awaitingCapture) {
+        if (!awaitingCapture) return@LaunchedEffect
+        delay(CAPTURE_SETTLE_MS)
+        val stabilized = withTimeoutOrNull(CAPTURE_WAIT_TIMEOUT_MS) {
+            var streak = 0
+            while (streak < CAPTURE_STABLE_FRAMES) {
+                streak = if (faceResult.isValid) streak + 1 else 0
+                delay(CAPTURE_STABLE_POLL_MS)
+            }
+            true
+        }
+        awaitingCapture = false
+        if (stabilized == true) shoot() else onCaptureError()
     }
 
     // 안내 문구 없이 카메라와 촬영 버튼만 둔다. 남은 높이에 정사각형 프리뷰를 맞춰 스크롤을 없앤다.
@@ -1038,8 +1068,8 @@ private fun FaceStep(
                 }
             }
             FaceGuideOverlay(valid = faceValid)
-            // 규격 충족 시 상단에 체크 배지
-            if (faceValid) {
+            // 규격 충족 시 상단에 체크 배지 (촬영 대기 중에는 자세 유지 안내로 바뀐다)
+            if (faceValid || awaitingCapture) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -1052,7 +1082,12 @@ private fun FaceStep(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(26.dp), tint = Color.White)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("좋아요!", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        Text(
+                            if (awaitingCapture) "그대로 정면을 봐주세요" else "좋아요!",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White,
+                        )
                     }
                 }
             }
@@ -1068,13 +1103,13 @@ private fun FaceStep(
             text = "촬영하기",
             height = 96.dp,
             fontSize = 34.sp,
-            enabled = faceValid,
+            enabled = faceValid && !awaitingCapture,
             icon = { Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(36.dp), tint = if (faceValid) OnTeal else TextDisabled) },
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 480.dp)
                 .padding(horizontal = 24.dp),
-            onClick = { capture() },
+            onClick = { awaitingCapture = true },
         )
         Spacer(modifier = Modifier.height(20.dp))
     }
