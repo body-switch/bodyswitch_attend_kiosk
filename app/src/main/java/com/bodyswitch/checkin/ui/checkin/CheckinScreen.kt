@@ -282,6 +282,13 @@ fun CheckinScreen(
                             lastInteraction = System.currentTimeMillis()
                             viewModel.checkout()
                         },
+                        onBack = {
+                            lastInteraction = System.currentTimeMillis()
+                            if (!isNavigatingBack) {
+                                isNavigatingBack = true
+                                onBack()
+                            }
+                        },
                         modifier = Modifier.weight(1f),
                     )
                 }

@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Person
@@ -37,6 +39,7 @@ private val ChoicePrimary = Color(0xFF4AB3BC)
 // 퇴실은 되돌리기 어려운 동작이라 붉은 계열로 구분하되, 경고처럼 보이지 않게 톤을 낮춘다.
 private val ChoiceExit = Color(0xFFE57373)
 private val ChoiceCardBg = Color(0xFF262626)
+private val ChoiceBackText = Color(0xFF9E9E9E)
 
 /**
  * 당일 미마감 입장 기록이 있는 회원에게 계속 이용할지 퇴실할지 고르게 하는 화면.
@@ -51,11 +54,13 @@ fun MemberAttendTypeScreen(
     memberName: String,
     onContinue: () -> Unit,
     onCheckout: () -> Unit,
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    Box(modifier = modifier.fillMaxSize()) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
+        modifier = Modifier
+            .fillMaxSize()
             .padding(horizontal = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -106,6 +111,33 @@ fun MemberAttendTypeScreen(
                 accent = ChoiceExit,
                 onClick = onCheckout,
                 modifier = Modifier.weight(1f),
+            )
+        }
+    }
+
+        // 뒤로가기. 가운데 정렬된 본문을 밀지 않도록 겹쳐 놓는다.
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 48.dp, top = 12.dp)
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                ) { onBack() },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "뒤로",
+                tint = ChoiceBackText,
+                modifier = Modifier.size(28.dp),
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "뒤로가기",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Medium,
+                color = ChoiceBackText,
             )
         }
     }

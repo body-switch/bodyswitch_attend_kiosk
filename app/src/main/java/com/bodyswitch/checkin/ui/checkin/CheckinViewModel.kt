@@ -34,6 +34,9 @@ import kotlinx.coroutines.launch
 import java.net.URLDecoder
 import javax.inject.Inject
 
+// 취소된 예약의 서버 status 값
+private const val RESERVATION_STATUS_CANCELED = "CANCELED"
+
 data class CheckinUiState(
     val isLoading: Boolean = true,
     val member: Member? = null,
@@ -338,7 +341,10 @@ class CheckinViewModel @Inject constructor(
                     ticketType = ticketType.apiValue,
                     ticketId = ticketId,
                 )
-                val reservations = response.reservations.map { dto ->
+                // 취소된 수업은 체크인 대상이 아니라 회원에게 혼란만 준다. 목록에서 제외한다.
+                val reservations = response.reservations
+                    .filter { it.status != RESERVATION_STATUS_CANCELED }
+                    .map { dto ->
                     Reservation(
                         reservationId = dto.reservationId,
                         courseClassName = dto.courseClassName,
