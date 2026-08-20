@@ -955,7 +955,11 @@ private fun TicketCard(
                         .border(4.dp, sportColor, RoundedCornerShape(16.dp))
                         .background(sportColor.copy(alpha = 0.14f), RoundedCornerShape(16.dp))
                 } else {
-                    Modifier.background(CardBg, RoundedCornerShape(16.dp))
+                    // 선택 전에도 종목이 구분되게 테두리를 종목색으로 얇게 두른다.
+                    // 만료권은 accentColor 가 이미 흐린 색이라 같이 죽는다.
+                    Modifier
+                        .background(CardBg, RoundedCornerShape(16.dp))
+                        .border(2.dp, accentColor.copy(alpha = 0.55f), RoundedCornerShape(16.dp))
                 }
             )
             .clip(RoundedCornerShape(16.dp))
@@ -1089,7 +1093,11 @@ private fun PassCard(
                         .border(4.dp, sportColor, RoundedCornerShape(16.dp))
                         .background(sportColor.copy(alpha = 0.14f), RoundedCornerShape(16.dp))
                 } else {
-                    Modifier.background(CardBg, RoundedCornerShape(16.dp))
+                    // 선택 전에도 종목이 구분되게 테두리를 종목색으로 얇게 두른다.
+                    // 만료권은 accentColor 가 이미 흐린 색이라 같이 죽는다.
+                    Modifier
+                        .background(CardBg, RoundedCornerShape(16.dp))
+                        .border(2.dp, accentColor.copy(alpha = 0.55f), RoundedCornerShape(16.dp))
                 }
             )
             .clip(RoundedCornerShape(16.dp))
