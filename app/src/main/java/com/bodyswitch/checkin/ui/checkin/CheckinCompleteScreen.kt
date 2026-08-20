@@ -44,6 +44,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bodyswitch.checkin.ui.common.isPortrait
 import com.bodyswitch.checkin.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -173,10 +174,12 @@ fun CheckinCompleteScreen(
         }
 
         // 중앙 콘텐츠
+        // 여백은 가로 화면 높이를 기준으로 잡혀 있다. 세로는 높이가 남아 버튼이 멀리 떨어져 보인다.
+        val portrait = isPortrait()
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 120.dp, bottom = 120.dp)
+                .padding(top = if (portrait) 72.dp else 120.dp, bottom = if (portrait) 220.dp else 120.dp)
                 .align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
@@ -222,7 +225,7 @@ fun CheckinCompleteScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 96.dp),
+                .padding(bottom = if (portrait) 140.dp else 96.dp),
             contentAlignment = Alignment.Center,
         ) {
             Box(

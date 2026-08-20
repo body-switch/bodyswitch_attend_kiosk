@@ -6,6 +6,11 @@ import androidx.activity.compose.BackHandler
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -93,6 +98,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.bodyswitch.checkin.R
 import com.bodyswitch.checkin.data.api.dto.MemberCandidate
 import com.bodyswitch.checkin.ui.common.MemberCandidateList
+import com.bodyswitch.checkin.ui.common.isPortrait
 import com.bodyswitch.checkin.ui.common.PhoneDigitCells
 import com.bodyswitch.checkin.ui.common.PhoneKeypad
 import com.bodyswitch.checkin.data.session.CheckinSettingsManager
@@ -308,22 +314,50 @@ fun AccessRegistrationScreen(
             }
         }
 
-        // 자동 복귀 임박 안내 (마지막 IDLE_WARNING_SECONDS 초)
-        if (idleRemaining in 1..IDLE_WARNING_SECONDS) {
+        // 자동 복귀 임박 안내 (마지막 IDLE_WARNING_SECONDS 초).
+        // 체크인(이용권 선택) 화면의 비활동 경고와 같은 디자인을 쓴다 — 어두운 카드 + Teal 테두리 + 숫자 뱃지.
+        AnimatedVisibility(
+            visible = idleRemaining in 1..IDLE_WARNING_SECONDS,
+            enter = fadeIn() + expandVertically(expandFrom = Alignment.Bottom),
+            exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Bottom),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 120.dp),
+        ) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 24.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(Yellow)
-                    .padding(horizontal = 28.dp, vertical = 14.dp),
+                    .padding(horizontal = 48.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color(0xFF1A1A1A).copy(alpha = 0.95f))
+                    .border(2.dp, Teal, RoundedCornerShape(20.dp))
+                    .padding(horizontal = 40.dp, vertical = 24.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    "${idleRemaining}초 후 처음 화면으로 돌아갑니다",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = OnTeal,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(24.dp),
+                ) {
+                    Text(
+                        text = "상호작용이 없으면 처음 화면으로 돌아갑니다",
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(Teal),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "$idleRemaining",
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                        )
+                    }
+                }
             }
         }
 
@@ -1248,6 +1282,8 @@ private fun DoneStep(
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
+        // 세로에서는 내용이 화면보다 짧아 위에 몰린다. 가로는 기존대로 위에서부터 채운다.
+        verticalArrangement = if (isPortrait()) Arrangement.Center else Arrangement.Top,
     ) {
         Spacer(modifier = Modifier.height(30.dp))
 
@@ -1283,6 +1319,9 @@ private fun DoneStep(
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Medium,
                 color = TextSoft,
+                // 이름이 길면 줄바꿈되는데, 정렬·여백이 없으면 둘째 줄이 화면 왼쪽 끝에 붙는다.
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 32.dp),
             )
         } else {
             // QR 발급: 흰 라운드 카드에 실제 발급 payload 렌더링
