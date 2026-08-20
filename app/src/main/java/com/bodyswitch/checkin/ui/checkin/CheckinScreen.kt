@@ -469,7 +469,7 @@ fun CheckinScreen(
                             SectionHeader(
                                 title = "사용 중인 수강권",
                                 count = activeTickets.size,
-                                countColor = sectionAccent(activeTickets.map { it.sportType }),
+                                countColor = Primary,
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             activeTickets.chunked(cardColumns).forEach { row ->
@@ -954,7 +954,8 @@ private fun TicketCard(
     onClick: () -> Unit,
 ) {
     val textColor = if (isExpired) TextMuted else TextWhite
-    val sportColor = sportAccent(ticket.sportType)
+    // 종목색은 이용권 계열에만 쓴다. 수강권(과 차감형 체험권)은 기존 기본색을 유지한다.
+    val sportColor = if (ticket.isPassType) sportAccent(ticket.sportType) else Primary
     val accentColor = if (isExpired) TextMuted else sportColor
     val badgeLabel = if (ticket.type == TicketType.TRIAL_TICKET) "체험권" else "수강권"
     val daysRemaining = calculateDaysRemaining(ticket.expireDate)
