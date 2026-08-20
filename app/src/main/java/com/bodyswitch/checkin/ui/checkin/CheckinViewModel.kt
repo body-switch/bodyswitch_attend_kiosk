@@ -188,6 +188,7 @@ class CheckinViewModel @Inject constructor(
                         startDate = dto.startDate,
                         expireDate = dto.expireDate,
                         status = dto.status,
+                        sportType = dto.sportType,
                     )
                 )
             }
@@ -205,6 +206,7 @@ class CheckinViewModel @Inject constructor(
                         classType = dto.classType,
                         usageType = dto.usageType,
                         status = dto.status,
+                        sportType = dto.sportType,
                     )
                 )
             }
@@ -216,6 +218,7 @@ class CheckinViewModel @Inject constructor(
                     startDate = dto.startDate,
                     expireDate = dto.expireDate,
                     status = dto.status,
+                    sportType = dto.sportType,
                 )
             } ?: emptyList()
 

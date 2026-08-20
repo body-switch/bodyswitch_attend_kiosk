@@ -18,6 +18,8 @@ data class Ticket(
     val classType: String? = null,
     val usageType: String? = null,
     val status: String? = null,
+    // 종목. 카드 강조색 결정에 쓴다. 없으면 기본색.
+    val sportType: String? = null,
 ) {
     // 이용권형 체험권: 예약 없이 기간 내 입장만 하는 이용권처럼 동작한다.
     // 예약 필요 여부는 classType 으로만 판정한다 (PASS = 자유입장, 레슨형은 예약 필요).
@@ -38,6 +40,8 @@ data class CoursePass(
     val startDate: String?,
     val expireDate: String?,
     val status: String? = null,
+    // 종목. 카드 강조색 결정에 쓴다. 없으면 기본색.
+    val sportType: String? = null,
 )
 
 data class Reservation(

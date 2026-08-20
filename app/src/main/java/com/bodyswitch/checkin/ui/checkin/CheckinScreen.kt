@@ -914,6 +914,24 @@ private fun SectionHeader(title: String, count: Int, countColor: Color) {
     }
 }
 
+// 종목별 강조색. 어두운 테마라 배경을 통째로 칠하지 않고 뱃지·선택 테두리 같은 강조 요소에만 쓴다.
+// 모르는 값이거나 상품에 종목이 없으면 기존 기본색으로 떨어진다.
+private fun sportAccent(sportType: String?): Color = when (sportType) {
+    "FITNESS" -> Color(0xFFFF8A3D)
+    "PILATES" -> Color(0xFFA78BFA)
+    "GOLF" -> Color(0xFF4ADE80)
+    "YOGA" -> Color(0xFF22D3EE)
+    "CROSSFIT" -> Color(0xFFF87171)
+    "BALL_GAMES" -> Color(0xFFA3E635)
+    "BOXING" -> Color(0xFFFB7185)
+    "DANCE" -> Color(0xFFF472B6)
+    "SWIMMING" -> Color(0xFF60A5FA)
+    "EDUCATION" -> Color(0xFF818CF8)
+    "BARRE_PILATES" -> Color(0xFFC4B5FD)
+    "TANNING" -> Color(0xFFFBBF24)
+    else -> Primary
+}
+
 @Composable
 private fun TicketCard(
     ticket: Ticket,
@@ -922,7 +940,8 @@ private fun TicketCard(
     onClick: () -> Unit,
 ) {
     val textColor = if (isExpired) TextMuted else TextWhite
-    val accentColor = if (isExpired) TextMuted else Primary
+    val sportColor = sportAccent(ticket.sportType)
+    val accentColor = if (isExpired) TextMuted else sportColor
     val badgeLabel = if (ticket.type == TicketType.TRIAL_TICKET) "체험권" else "수강권"
     val daysRemaining = calculateDaysRemaining(ticket.expireDate)
     val progress = if (ticket.usageCount > 0) ticket.remainCount.toFloat() / ticket.usageCount.toFloat() else 0f
@@ -933,8 +952,8 @@ private fun TicketCard(
             .then(
                 if (isSelected) {
                     Modifier
-                        .border(4.dp, Primary, RoundedCornerShape(16.dp))
-                        .background(PrimaryBg, RoundedCornerShape(16.dp))
+                        .border(4.dp, sportColor, RoundedCornerShape(16.dp))
+                        .background(sportColor.copy(alpha = 0.14f), RoundedCornerShape(16.dp))
                 } else {
                     Modifier.background(CardBg, RoundedCornerShape(16.dp))
                 }
@@ -1057,7 +1076,8 @@ private fun PassCard(
     onClick: () -> Unit,
 ) {
     val textColor = if (isExpired) TextMuted else TextWhite
-    val accentColor = if (isExpired) TextMuted else Primary
+    val sportColor = sportAccent(pass.sportType)
+    val accentColor = if (isExpired) TextMuted else sportColor
     val daysRemaining = calculateDaysRemaining(pass.expireDate)
 
     Box(
@@ -1066,8 +1086,8 @@ private fun PassCard(
             .then(
                 if (isSelected) {
                     Modifier
-                        .border(4.dp, Primary, RoundedCornerShape(16.dp))
-                        .background(PrimaryBg, RoundedCornerShape(16.dp))
+                        .border(4.dp, sportColor, RoundedCornerShape(16.dp))
+                        .background(sportColor.copy(alpha = 0.14f), RoundedCornerShape(16.dp))
                 } else {
                     Modifier.background(CardBg, RoundedCornerShape(16.dp))
                 }
