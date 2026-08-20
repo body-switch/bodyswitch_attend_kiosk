@@ -693,11 +693,15 @@ fun CheckinScreen(
                             .padding(horizontal = 24.dp, vertical = 16.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        // 차감형 수강권/체험권만 차감 안내 (PASS형 체험권 제외)
+                        // 차감형 수강권/체험권만 차감 안내 (PASS형 체험권 제외).
+                        // 이미 출석한 수업을 다시 고른 재입장은 서버가 차감하지 않는다
+                        // (KioskCheckinService.attendReservation 의 ATTENDED 분기 = 차감 0).
+                        // 실제로 안 깎이는데 "-1회 차감"을 띄우면 회원이 두 번 깎인 걸로 오해한다.
                         val isTicket = !uiState.selectedTicketIsPass &&
                             uiState.selectedTicketType in listOf(
                                 TicketType.COURSE_TICKET, TicketType.TRIAL_TICKET
                             )
+                        val willDeduct = isTicket && selectedReservation?.status != "ATTENDED"
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -729,8 +733,8 @@ fun CheckinScreen(
                                             color = Color.White,
                                         )
                                     }
-                                    // 수강권일 때만 차감 안내 텍스트
-                                    if (isTicket) {
+                                    // 실제로 차감되는 경우에만 안내 텍스트
+                                    if (willDeduct) {
                                         Text(
                                             text = "잔여횟수 -1회 차감",
                                             fontSize = 32.sp,
