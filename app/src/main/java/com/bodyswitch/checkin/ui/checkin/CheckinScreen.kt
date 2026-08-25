@@ -106,6 +106,12 @@ private val Green = Color(0xFF4CAF50)
  */
 private val CHECKABLE_RESERVATION_STATUSES = listOf("ATTENDED", "RESERVED", "ABSENT")
 
+/**
+ * 그 예약으로 입장해도 잔여횟수가 깎이지 않는 상태.
+ * 이미 출석한 건은 서버가 차감 0으로 처리하고, 결석한 건은 결석 확정 시점에 이미 차감이 끝나 있다.
+ */
+private val NON_DEDUCTING_RESERVATION_STATUSES = listOf("ATTENDED", "ABSENT")
+
 @Composable
 fun CheckinScreen(
     onBack: () -> Unit,
@@ -706,14 +712,15 @@ fun CheckinScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         // 차감형 수강권/체험권만 차감 안내 (PASS형 체험권 제외).
-                        // 이미 출석한 수업을 다시 고른 재입장은 서버가 차감하지 않는다
-                        // (KioskCheckinService.attendReservation 의 ATTENDED 분기 = 차감 0).
+                        // 이미 출석한 수업을 다시 고른 재입장과 결석 수업 입장은 서버가 차감하지 않는다
+                        // (KioskCheckinService.attendReservation 의 ATTENDED/ABSENT 분기 = 차감 0).
                         // 실제로 안 깎이는데 "-1회 차감"을 띄우면 회원이 두 번 깎인 걸로 오해한다.
                         val isTicket = !uiState.selectedTicketIsPass &&
                             uiState.selectedTicketType in listOf(
                                 TicketType.COURSE_TICKET, TicketType.TRIAL_TICKET
                             )
-                        val willDeduct = isTicket && selectedReservation?.status != "ATTENDED"
+                        val willDeduct = isTicket &&
+                            selectedReservation?.status !in NON_DEDUCTING_RESERVATION_STATUSES
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
