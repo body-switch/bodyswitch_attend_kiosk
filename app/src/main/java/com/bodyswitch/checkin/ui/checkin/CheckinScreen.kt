@@ -99,6 +99,13 @@ private val ProgressTrack = Color(0xFF737373)
 private val Red = Color(0xFFE53935)
 private val Green = Color(0xFF4CAF50)
 
+/**
+ * 눌러서 입장할 수 있는 예약 상태.
+ * 결석(ABSENT)도 입장 가능하다 — 서버가 출석으로 정정하면서 노쇼 이력·정원을 되돌리고
+ * 추가 차감은 하지 않는다. 결석했다고 회원을 문 앞에서 막지 않기 위한 것이다.
+ */
+private val CHECKABLE_RESERVATION_STATUSES = listOf("ATTENDED", "RESERVED", "ABSENT")
+
 @Composable
 fun CheckinScreen(
     onBack: () -> Unit,
@@ -349,7 +356,8 @@ fun CheckinScreen(
                         // 이용권 또는 PASS형 체험권은 예약 없이 바로 체크인 가능
                         uiState.selectedTicketIsPass -> true
                         uiState.selectedTicketType in listOf(TicketType.COURSE_TICKET, TicketType.TRIAL_TICKET) ->
-                            selectedReservation != null && selectedReservation.status in listOf("ATTENDED", "RESERVED")
+                            selectedReservation != null &&
+                                selectedReservation.status in CHECKABLE_RESERVATION_STATUSES
                         uiState.selectedTicketType == TicketType.COURSE_PASS -> true
                         else -> false
                     }
@@ -1215,7 +1223,7 @@ private fun ReservationSection(
             Text(text = "오늘 수업", color = TextGray, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(8.dp))
             reservations.forEach { reservation ->
-                val isCheckable = reservation.status in listOf("ATTENDED", "RESERVED")
+                val isCheckable = reservation.status in CHECKABLE_RESERVATION_STATUSES
                 val isSelected = selectedReservationId == reservation.reservationId
                 ReservationCard(
                     reservation = reservation,
