@@ -99,19 +99,6 @@ private val ProgressTrack = Color(0xFF737373)
 private val Red = Color(0xFFE53935)
 private val Green = Color(0xFF4CAF50)
 
-/**
- * 눌러서 입장할 수 있는 예약 상태.
- * 결석(ABSENT)도 입장 가능하다 — 서버가 출석으로 정정하면서 노쇼 이력·정원을 되돌리고
- * 추가 차감은 하지 않는다. 결석했다고 회원을 문 앞에서 막지 않기 위한 것이다.
- */
-private val CHECKABLE_RESERVATION_STATUSES = listOf("ATTENDED", "RESERVED", "ABSENT")
-
-/**
- * 그 예약으로 입장해도 잔여횟수가 깎이지 않는 상태.
- * 이미 출석한 건은 서버가 차감 0으로 처리하고, 결석한 건은 결석 확정 시점에 이미 차감이 끝나 있다.
- */
-private val NON_DEDUCTING_RESERVATION_STATUSES = listOf("ATTENDED", "ABSENT")
-
 @Composable
 fun CheckinScreen(
     onBack: () -> Unit,
@@ -362,8 +349,7 @@ fun CheckinScreen(
                         // 이용권 또는 PASS형 체험권은 예약 없이 바로 체크인 가능
                         uiState.selectedTicketIsPass -> true
                         uiState.selectedTicketType in listOf(TicketType.COURSE_TICKET, TicketType.TRIAL_TICKET) ->
-                            selectedReservation != null &&
-                                selectedReservation.status in CHECKABLE_RESERVATION_STATUSES
+                            selectedReservation != null && selectedReservation.status in listOf("ATTENDED", "RESERVED")
                         uiState.selectedTicketType == TicketType.COURSE_PASS -> true
                         else -> false
                     }
@@ -712,15 +698,14 @@ fun CheckinScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         // 차감형 수강권/체험권만 차감 안내 (PASS형 체험권 제외).
-                        // 이미 출석한 수업을 다시 고른 재입장과 결석 수업 입장은 서버가 차감하지 않는다
-                        // (KioskCheckinService.attendReservation 의 ATTENDED/ABSENT 분기 = 차감 0).
+                        // 이미 출석한 수업을 다시 고른 재입장은 서버가 차감하지 않는다
+                        // (KioskCheckinService.attendReservation 의 ATTENDED 분기 = 차감 0).
                         // 실제로 안 깎이는데 "-1회 차감"을 띄우면 회원이 두 번 깎인 걸로 오해한다.
                         val isTicket = !uiState.selectedTicketIsPass &&
                             uiState.selectedTicketType in listOf(
                                 TicketType.COURSE_TICKET, TicketType.TRIAL_TICKET
                             )
-                        val willDeduct = isTicket &&
-                            selectedReservation?.status !in NON_DEDUCTING_RESERVATION_STATUSES
+                        val willDeduct = isTicket && selectedReservation?.status != "ATTENDED"
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1230,7 +1215,7 @@ private fun ReservationSection(
             Text(text = "오늘 수업", color = TextGray, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Spacer(modifier = Modifier.height(8.dp))
             reservations.forEach { reservation ->
-                val isCheckable = reservation.status in CHECKABLE_RESERVATION_STATUSES
+                val isCheckable = reservation.status in listOf("ATTENDED", "RESERVED")
                 val isSelected = selectedReservationId == reservation.reservationId
                 ReservationCard(
                     reservation = reservation,
