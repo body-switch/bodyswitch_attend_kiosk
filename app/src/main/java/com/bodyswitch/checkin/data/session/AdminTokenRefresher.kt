@@ -4,7 +4,9 @@ import android.util.Base64
 import android.util.Log
 import com.bodyswitch.checkin.data.api.KioskApi
 import com.bodyswitch.checkin.data.api.dto.AdminLoginRequest
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Named
@@ -16,6 +18,10 @@ import javax.inject.Singleton
  * 키오스크 태블릿을 장시간 켜두면 앱이 재시작되지 않아 [SessionManager.token]이
  * 서버 만료(7일) 이후에도 그대로 남고, 안면등록/QR체크인 등에서
  * "지점 정보를 확인할 수 없습니다"가 발생한다. 만료 임박 시 조용히 재로그인해 이를 막는다.
+ *
+ * 재로그인이 안 되는 경우(자격증명 미저장, 서버 거절, 네트워크)에는 만료가 지난 토큰을
+ * 계속 들고 있어봐야 요청마다 실패만 나온다. [ensureValidOrExpire]가 그 시점에 세션을 비워
+ * 로그인 화면으로 보낸다.
  */
 @Singleton
 class AdminTokenRefresher @Inject constructor(
@@ -31,6 +37,27 @@ class AdminTokenRefresher @Inject constructor(
         val exp = decodeExpEpochSeconds(token) ?: return true
         val now = System.currentTimeMillis() / MILLIS_PER_SECOND
         return now >= exp - EXPIRY_BUFFER_SECONDS
+    }
+
+    /** exp 가 이미 지났거나 파싱 불가면 만료로 본다. 토큰이 없으면 false — 로그아웃 상태는 만료가 아니다. */
+    fun isExpired(token: String?): Boolean {
+        if (token == null) return false
+        val exp = decodeExpEpochSeconds(token) ?: return true
+        return System.currentTimeMillis() / MILLIS_PER_SECOND >= exp
+    }
+
+    /**
+     * 현재 토큰이 만료됐으면 재로그인을 시도하고, 그래도 만료 상태면 세션을 비운다.
+     * 홈 화면 진입과 주기 검사에서 호출한다. 요청이 나가지 않는 상주 태블릿도 여기서 잡힌다.
+     */
+    suspend fun ensureValidOrExpire() {
+        val current = sessionManager.token ?: return
+        if (!isExpired(current)) return
+        val refreshed = withContext(Dispatchers.IO) { refreshBlocking(current) }
+        if (isExpired(refreshed)) {
+            Log.w(TAG, "관리자 토큰 만료 확정 - 세션 비움")
+            sessionManager.expire()
+        }
     }
 
     /**

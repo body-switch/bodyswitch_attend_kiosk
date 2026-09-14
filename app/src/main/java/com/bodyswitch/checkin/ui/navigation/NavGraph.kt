@@ -1,12 +1,15 @@
 package com.bodyswitch.checkin.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.bodyswitch.checkin.data.session.CheckinSettingsManager
+import com.bodyswitch.checkin.data.session.SessionExpiryViewModel
 import com.bodyswitch.checkin.data.session.SessionManager
 import com.bodyswitch.checkin.ui.access.AccessRegistrationScreen
 import com.bodyswitch.checkin.ui.checkin.CheckinCompleteScreen
@@ -24,6 +27,9 @@ import java.net.URLEncoder
 object Routes {
     const val SPLASH = "splash"
     const val LOGIN = "login"
+    // 선택 인자가 붙은 실제 등록 경로. popUpTo 는 이 패턴으로 잡아야 한다.
+    const val LOGIN_PATTERN = "login?expired={expired}"
+    const val LOGIN_EXPIRED = "login?expired=true"
     const val HOME = "home"
     const val CHECKIN_QR = "checkin_qr/{qrData}"
     const val CHECKIN_TOKEN = "checkin_token/{token}"
@@ -55,8 +61,21 @@ object Routes {
 }
 
 @Composable
-fun NavGraph(sessionManager: SessionManager, checkinSettingsManager: CheckinSettingsManager) {
+fun NavGraph(
+    sessionManager: SessionManager,
+    checkinSettingsManager: CheckinSettingsManager,
+    sessionExpiryViewModel: SessionExpiryViewModel = hiltViewModel(),
+) {
     val navController = rememberNavController()
+
+    // 관리자 토큰 만료가 확정되면 어느 화면에 있든 로그인으로 보낸다. 안내 배너는 로그인 화면이 띄운다.
+    LaunchedEffect(Unit) {
+        sessionExpiryViewModel.expired.collect {
+            navController.navigate(Routes.LOGIN_EXPIRED) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
 
     NavHost(
         navController = navController,
@@ -74,17 +93,23 @@ fun NavGraph(sessionManager: SessionManager, checkinSettingsManager: CheckinSett
             )
         }
 
-        composable(Routes.LOGIN) {
+        composable(
+            route = Routes.LOGIN_PATTERN,
+            arguments = listOf(navArgument("expired") { type = NavType.BoolType; defaultValue = false }),
+        ) { backStackEntry ->
             LoginScreen(
+                sessionExpired = backStackEntry.arguments?.getBoolean("expired") ?: false,
                 onLoginSuccess = {
                     navController.navigate(Routes.HOME) {
-                        popUpTo(Routes.LOGIN) { inclusive = true }
+                        popUpTo(Routes.LOGIN_PATTERN) { inclusive = true }
                     }
                 },
             )
         }
 
         composable(Routes.HOME) {
+            // 홈에 들어올 때마다 토큰 만료를 확인한다. 이후는 10분 주기.
+            LaunchedEffect(Unit) { sessionExpiryViewModel.checkNow() }
             MainCheckinScreen(
                 sessionManager = sessionManager,
                 checkinSettingsManager = checkinSettingsManager,
