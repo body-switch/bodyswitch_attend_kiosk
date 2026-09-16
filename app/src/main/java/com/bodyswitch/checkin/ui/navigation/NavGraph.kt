@@ -1,8 +1,5 @@
 package com.bodyswitch.checkin.ui.navigation
 
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,6 +20,7 @@ import com.bodyswitch.checkin.ui.checkin.CheckinCompleteScreen
 import com.bodyswitch.checkin.ui.checkin.CheckinScreen
 import com.bodyswitch.checkin.ui.checkin.EmployeeAttendTypeScreen
 import com.bodyswitch.checkin.ui.checkin.EmployeeCheckinCompleteScreen
+import com.bodyswitch.checkin.ui.common.SessionExpiredDialog
 import java.net.URLDecoder
 import com.bodyswitch.checkin.ui.history.CheckinHistoryScreen
 import com.bodyswitch.checkin.ui.home.MainCheckinScreen
@@ -80,19 +78,12 @@ fun NavGraph(
     }
 
     if (showSessionExpiredDialog) {
-        AlertDialog(
-            onDismissRequest = {},
-            title = { Text("로그인 만료") },
-            text = { Text("로그인이 만료되어 자동 로그아웃되었습니다.\n다시 로그인해 주세요.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showSessionExpiredDialog = false
-                        navController.navigate(Routes.LOGIN) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    },
-                ) { Text("확인") }
+        SessionExpiredDialog(
+            onConfirm = {
+                showSessionExpiredDialog = false
+                navController.navigate(Routes.LOGIN) {
+                    popUpTo(0) { inclusive = true }
+                }
             },
         )
     }
