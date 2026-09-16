@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.bodyswitch.checkin.data.api.dto.BranchInfoResponse
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -14,7 +17,8 @@ import javax.inject.Singleton
  * 안드로이드가 앱 프로세스를 회수하면 토큰 나이와 무관하게 세션이 통째로 사라졌고,
  * 키오스크를 계속 켜뒀는데도 로그인 화면으로 돌아가는 증상이 있었다.
  *
- * 토큰 자체의 만료(7일)는 여기서 다루지 않는다. 그건 [AdminTokenRefresher]의 몫이다.
+ * 토큰 자체의 만료(90일)는 여기서 다루지 않는다. 그건 [AdminTokenRefresher]의 몫이다.
+ * 만료가 확정되면 [expire]로 세션만 비우고 [sessionExpired]를 쏴서 화면이 로그인으로 돌아가게 한다.
  */
 @Singleton
 class SessionManager @Inject constructor(
@@ -53,6 +57,11 @@ class SessionManager @Inject constructor(
         private set
 
     val isLoggedIn: Boolean get() = token != null
+
+    private val _sessionExpired = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /** 관리자 토큰 만료가 확정돼 세션을 비웠을 때 1회 발행된다. */
+    val sessionExpired: SharedFlow<Unit> = _sessionExpired.asSharedFlow()
 
     val bearerToken: String? get() = token?.let { "Bearer $it" }
 
@@ -106,7 +115,24 @@ class SessionManager @Inject constructor(
             .apply()
     }
 
+    /**
+     * 토큰 만료로 세션을 비운다. [logout]과 달리 자동로그인 자격증명은 남긴다 —
+     * 센터가 다시 로그인할 때 아이디·비밀번호가 채워져 있어야 하고,
+     * 저장돼 있으면 로그인 화면이 알아서 재로그인을 시도한다.
+     * 이미 비어 있으면 아무 일도 하지 않아 이벤트가 중복 발행되지 않는다.
+     */
+    fun expire() {
+        if (token == null) return
+        clearSession()
+        _sessionExpired.tryEmit(Unit)
+    }
+
     fun logout() {
+        clearSession()
+        autoLoginManager.clear()
+    }
+
+    private fun clearSession() {
         token = null
         username = null
         name = null
@@ -121,7 +147,6 @@ class SessionManager @Inject constructor(
         phone = null
 
         prefs.edit().clear().apply()
-        autoLoginManager.clear()
     }
 
     companion object {

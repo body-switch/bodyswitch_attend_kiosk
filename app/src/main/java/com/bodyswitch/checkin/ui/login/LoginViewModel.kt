@@ -5,9 +5,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bodyswitch.checkin.data.api.KioskApi
 import com.bodyswitch.checkin.data.api.dto.AdminLoginRequest
+import com.bodyswitch.checkin.data.api.dto.ErrorResponse
 import com.bodyswitch.checkin.data.network.NetworkMonitor
 import com.bodyswitch.checkin.data.session.AutoLoginManager
 import com.bodyswitch.checkin.data.session.SessionManager
+import com.squareup.moshi.Moshi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,6 +32,7 @@ class LoginViewModel @Inject constructor(
     private val sessionManager: SessionManager,
     private val autoLoginManager: AutoLoginManager,
     private val networkMonitor: NetworkMonitor,
+    private val moshi: Moshi,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -125,9 +128,11 @@ class LoginViewModel @Inject constructor(
 
                 _uiState.value = _uiState.value.copy(isLoading = false, loginSuccess = true)
             } catch (e: retrofit2.HttpException) {
+                // 406 은 서버가 사유를 그대로 준다 — 체크인앱 미승인 / 매니저 계정 아님 / 계정 상태.
+                // 하나로 뭉개면 센터가 무엇을 해야 하는지 알 수 없다.
                 val errorMsg = when (e.code()) {
                     401 -> "아이디 또는 비밀번호가 올바르지 않습니다"
-                    406 -> "계정이 비활성 상태입니다. 관리자에게 문의하세요"
+                    406 -> serverMessage(e) ?: "로그인할 수 없는 계정입니다. 관리자에게 문의하세요"
                     else -> "로그인 실패 (${e.code()})"
                 }
                 Log.e("LOGIN", "로그인 실패", e)
@@ -144,5 +149,12 @@ class LoginViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    private fun serverMessage(e: retrofit2.HttpException): String? = try {
+        val body = e.response()?.errorBody()?.string()
+        moshi.adapter(ErrorResponse::class.java).fromJson(body ?: "")?.message
+    } catch (_: Exception) {
+        null
     }
 }
