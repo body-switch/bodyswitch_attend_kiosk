@@ -18,7 +18,7 @@ import javax.inject.Singleton
  * 키오스크를 계속 켜뒀는데도 로그인 화면으로 돌아가는 증상이 있었다.
  *
  * 토큰 자체의 만료(90일)는 여기서 다루지 않는다. 그건 [AdminTokenRefresher]의 몫이다.
- * 만료가 확정되면 [expire]로 세션만 비우고 [sessionExpired]를 쏴서 화면이 로그인으로 돌아가게 한다.
+ * 만료가 확정되면 [expire]로 세션만 비우고 [sessionExpired]를 쏴서 팝업 → 로그인 화면으로 돌아가게 한다.
  */
 @Singleton
 class SessionManager @Inject constructor(

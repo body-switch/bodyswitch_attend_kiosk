@@ -1,7 +1,14 @@
 package com.bodyswitch.checkin.ui.navigation
 
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -27,9 +34,6 @@ import java.net.URLEncoder
 object Routes {
     const val SPLASH = "splash"
     const val LOGIN = "login"
-    // 선택 인자가 붙은 실제 등록 경로. popUpTo 는 이 패턴으로 잡아야 한다.
-    const val LOGIN_PATTERN = "login?expired={expired}"
-    const val LOGIN_EXPIRED = "login?expired=true"
     const val HOME = "home"
     const val CHECKIN_QR = "checkin_qr/{qrData}"
     const val CHECKIN_TOKEN = "checkin_token/{token}"
@@ -67,14 +71,30 @@ fun NavGraph(
     sessionExpiryViewModel: SessionExpiryViewModel = hiltViewModel(),
 ) {
     val navController = rememberNavController()
+    var showSessionExpiredDialog by remember { mutableStateOf(false) }
 
-    // 관리자 토큰 만료가 확정되면 어느 화면에 있든 로그인으로 보낸다. 안내 배너는 로그인 화면이 띄운다.
+    // 관리자 토큰 만료가 확정되면(세션은 이미 비워짐) 어느 화면에 있든 팝업을 띄우고,
+    // 확인을 눌러야 로그인 화면으로 보낸다. 토스트는 스쳐 지나가서 센터가 못 보고 버그로 오인한다.
     LaunchedEffect(Unit) {
-        sessionExpiryViewModel.expired.collect {
-            navController.navigate(Routes.LOGIN_EXPIRED) {
-                popUpTo(0) { inclusive = true }
-            }
-        }
+        sessionExpiryViewModel.expired.collect { showSessionExpiredDialog = true }
+    }
+
+    if (showSessionExpiredDialog) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("로그인 만료") },
+            text = { Text("로그인이 만료되어 자동 로그아웃되었습니다.\n다시 로그인해 주세요.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showSessionExpiredDialog = false
+                        navController.navigate(Routes.LOGIN) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                ) { Text("확인") }
+            },
+        )
     }
 
     NavHost(
@@ -93,15 +113,11 @@ fun NavGraph(
             )
         }
 
-        composable(
-            route = Routes.LOGIN_PATTERN,
-            arguments = listOf(navArgument("expired") { type = NavType.BoolType; defaultValue = false }),
-        ) { backStackEntry ->
+        composable(Routes.LOGIN) {
             LoginScreen(
-                sessionExpired = backStackEntry.arguments?.getBoolean("expired") ?: false,
                 onLoginSuccess = {
                     navController.navigate(Routes.HOME) {
-                        popUpTo(Routes.LOGIN_PATTERN) { inclusive = true }
+                        popUpTo(Routes.LOGIN) { inclusive = true }
                     }
                 },
             )

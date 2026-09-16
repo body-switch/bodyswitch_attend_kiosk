@@ -75,7 +75,6 @@ private val Red = Color(0xFFE53935)
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    sessionExpired: Boolean = false,
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -148,7 +147,6 @@ fun LoginScreen(
                             uiState = uiState,
                             viewModel = viewModel,
                             focusManager = focusManager,
-                            sessionExpired = sessionExpired,
                         )
                     }
                 }
@@ -196,7 +194,6 @@ fun LoginScreen(
                             uiState = uiState,
                             viewModel = viewModel,
                             focusManager = focusManager,
-                            sessionExpired = sessionExpired,
                         )
                     }
                 }
@@ -224,7 +221,6 @@ private fun LoginFormContent(
     uiState: LoginUiState,
     viewModel: LoginViewModel,
     focusManager: FocusManager,
-    sessionExpired: Boolean = false,
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
 
@@ -239,22 +235,6 @@ private fun LoginFormContent(
     Spacer(modifier = Modifier.height(24.dp))
 
     HorizontalDivider(color = GrayBorder, thickness = 1.dp)
-
-    // 토큰 만료로 되돌아온 경우. 에러가 아니라 정상 만료라는 것을 센터가 알아야
-    // "앱이 고장났다"로 문의하지 않는다. 자동로그인이 저장돼 있으면 곧바로 재로그인이 돈다.
-    if (sessionExpired) {
-        Spacer(modifier = Modifier.height(20.dp))
-        Text(
-            text = "로그인이 만료되었습니다. 다시 로그인해 주세요.",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = Color(0xFFFFC107),
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(PanelBg, shape = RoundedCornerShape(8.dp))
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        )
-    }
 
     Spacer(modifier = Modifier.height(32.dp))
 
