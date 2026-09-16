@@ -144,7 +144,9 @@ class CheckinViewModel @Inject constructor(
                     when (e.code()) {
                         404 -> "회원을 찾을 수 없습니다"
                         401 -> "QR 코드가 유효하지 않습니다"
-                        406 -> "해당 지점의 회원이 아닙니다"
+                        // 406 은 서버 사유를 그대로 — "해당 지점의 회원이 아닙니다" 외에
+                        // "태블릿 관리자 로그인이 만료되었습니다"도 이 코드로 온다.
+                        406 -> failure.userMessage
                         else -> "로그인 실패 (${e.code()})"
                     }
                 } else {

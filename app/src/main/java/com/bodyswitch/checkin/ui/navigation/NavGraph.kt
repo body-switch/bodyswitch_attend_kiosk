@@ -1,18 +1,26 @@
 package com.bodyswitch.checkin.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.bodyswitch.checkin.data.session.CheckinSettingsManager
+import com.bodyswitch.checkin.data.session.SessionExpiryViewModel
 import com.bodyswitch.checkin.data.session.SessionManager
 import com.bodyswitch.checkin.ui.access.AccessRegistrationScreen
 import com.bodyswitch.checkin.ui.checkin.CheckinCompleteScreen
 import com.bodyswitch.checkin.ui.checkin.CheckinScreen
 import com.bodyswitch.checkin.ui.checkin.EmployeeAttendTypeScreen
 import com.bodyswitch.checkin.ui.checkin.EmployeeCheckinCompleteScreen
+import com.bodyswitch.checkin.ui.common.SessionExpiredDialog
 import java.net.URLDecoder
 import com.bodyswitch.checkin.ui.history.CheckinHistoryScreen
 import com.bodyswitch.checkin.ui.home.MainCheckinScreen
@@ -55,8 +63,30 @@ object Routes {
 }
 
 @Composable
-fun NavGraph(sessionManager: SessionManager, checkinSettingsManager: CheckinSettingsManager) {
+fun NavGraph(
+    sessionManager: SessionManager,
+    checkinSettingsManager: CheckinSettingsManager,
+    sessionExpiryViewModel: SessionExpiryViewModel = hiltViewModel(),
+) {
     val navController = rememberNavController()
+    var showSessionExpiredDialog by remember { mutableStateOf(false) }
+
+    // 관리자 토큰 만료가 확정되면(세션은 이미 비워짐) 어느 화면에 있든 팝업을 띄우고,
+    // 확인을 눌러야 로그인 화면으로 보낸다. 토스트는 스쳐 지나가서 센터가 못 보고 버그로 오인한다.
+    LaunchedEffect(Unit) {
+        sessionExpiryViewModel.expired.collect { showSessionExpiredDialog = true }
+    }
+
+    if (showSessionExpiredDialog) {
+        SessionExpiredDialog(
+            onConfirm = {
+                showSessionExpiredDialog = false
+                navController.navigate(Routes.LOGIN) {
+                    popUpTo(0) { inclusive = true }
+                }
+            },
+        )
+    }
 
     NavHost(
         navController = navController,
@@ -85,6 +115,8 @@ fun NavGraph(sessionManager: SessionManager, checkinSettingsManager: CheckinSett
         }
 
         composable(Routes.HOME) {
+            // 홈에 들어올 때마다 토큰 만료를 확인한다. 이후는 10분 주기.
+            LaunchedEffect(Unit) { sessionExpiryViewModel.checkNow() }
             MainCheckinScreen(
                 sessionManager = sessionManager,
                 checkinSettingsManager = checkinSettingsManager,
